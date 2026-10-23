@@ -1,0 +1,100 @@
+==========================================================
+  PRODUCTIVITY APP
+  Lokale schooltaak-tracker
+==========================================================
+
+WAT IS DIT?
+-----------
+Een lokale web-app die je helpt je schooltaken per vak bij te
+houden. Alles wordt opgeslagen in een SQLite-database (data.db)
+in deze map. Er gaat niets naar het internet.
+
+JE GEGEVENS
+-----------
+- Bestand: data.db (in deze map)
+- Maak regelmatig een kopie van data.db als backup.
+- Verwijder je per ongeluk data.db? Dan ben je alles kwijt.
+  Kopieer dus af en toe data.db naar een veilige plek.
+
+
+STARTEN
+-------
+Dubbelklik op: start_app.bat
+
+Er opent een zwart venster (de server) en je browser opent
+automatisch http://127.0.0.1:8765
+
+Om te stoppen: sluit het zwarte venster, of druk Ctrl+C.
+
+SNELKOPPELING OP JE DESKTOP
+---------------------------
+1. Rechtermuisknop op start_app.bat
+2. "Verzenden naar" > "Bureaublad (snelkoppeling maken)"
+3. Hernoem de snelkoppeling naar bv. "Productivity App"
+
+Wil je een mooi icoon? Rechtermuisknop op de snelkoppeling >
+Eigenschappen > Snelkoppeling > Ander pictogram.
+
+
+VEREISTEN
+---------
+- Windows 10 of 11
+- Python 3.8 of nieuwer (https://www.python.org/downloads/)
+  Vink tijdens installatie "Add Python to PATH" aan.
+- Een moderne browser (Edge, Chrome, Firefox)
+
+
+GEBRUIK
+-------
+- Overzicht: blokken per vak met progressbalk en percentage.
+  Klik op een blok om het vak te openen.
+- Vak: klik op een onderdeel om het open/dicht te klappen.
+  Voeg onderdelen en sub-onderdelen toe.
+- Taken: per onderdeel. Type = opdracht / theorie / labo.
+  Vink af wanneer gedaan. Titel wijzigen via potlood-icoon.
+- Deadlines: per taak kan je een HARDE deadline zetten.
+- Streefmomenten: per taak kan je ook een PERSOONLIJK
+  streefmoment zetten (los van de harde deadline).
+  Beide zijn optioneel.
+- Deadlines-pagina: twee tabs, een voor harde deadlines,
+  een voor streefmomenten.
+- Thema: knop onderaan in de zijbalk wisselt tussen
+  Grey / Light / Dark.
+- Zijbalk: knop linksboven klapt de navigatie in/uit.
+
+
+MAPSTRUCTUUR
+------------
+Productivity App\
+  app.py            de server
+  data.db           jouw gegevens (SQLite)
+  start_app.bat     om te starten
+  README.txt        dit bestand
+  static\
+    index.html
+    style.css
+    app.js
+
+
+PROBLEMEN?
+----------
+- "Python is niet gevonden": installeer Python en vink
+  "Add Python to PATH" aan, of herstart je PC.
+- Browser opent niet: ga handmatig naar
+  http://127.0.0.1:8765
+- Poort 8765 bezet: sluit een eerder geopend venster van
+  de app, of herstart je PC.
+- Data kwijt: herstel een backup van data.db.
+- App traag of rare fouten: sluit het venster, start opnieuw.
+
+
+BACKUP MAKEN
+------------
+Kopieer data.db naar bv. OneDrive of een USB-stick.
+Doe dit bv. wekelijks.
+
+
+PRIVACY
+-------
+De app luistert alleen op 127.0.0.1 (jouw eigen PC).
+Niemand anders kan erbij. Er is geen internetverbinding nodig.
