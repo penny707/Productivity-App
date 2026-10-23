@@ -1,100 +1,136 @@
-# Elio
+<p align="center">
+  <img src="static/icon.svg" alt="Elio logo" width="96" height="96">
+</p>
 
-Lokale productiviteitsapp en schooltaak-tracker. Je houdt je taken per vak bij, met harde deadlines
-en persoonlijke streefmomenten. Alles wordt opgeslagen in een SQLite-database
-(`data.db`) in deze map. Er gaat niets naar het internet.
+<h1 align="center">Elio</h1>
 
-## Eerste keer instellen
+<p align="center">
+  A local-first study planner for Windows: track tasks per course, hard deadlines and personal target dates.<br>
+  Python standard library + vanilla JavaScript. <strong>Zero dependencies.</strong>
+</p>
 
-1. Installeer **Python 3.8 of nieuwer** via https://www.python.org/downloads/
-   en vink tijdens de installatie **"Add Python to PATH"** aan.
-2. Dubbelklik op **`snelkoppeling_maken.bat`**.
-   Er verschijnt een icoon **"Elio"** op je bureaublad.
+---
 
-## Starten en stoppen
+Elio runs entirely on your own PC. Your data lives in a single SQLite file next to
+the app, and nothing is sent to the internet. It opens in its own window like a
+native app, with a desktop/Start menu shortcut and no console window.
 
-- **Starten:** dubbelklik op het bureaubladicoon. De app opent in een eigen
-  venster (Microsoft Edge in app-modus, zonder adresbalk). Er verschijnt geen
-  zwart venster: de server draait onzichtbaar op de achtergrond.
-- **Nog eens dubbelklikken** terwijl de app draait opent gewoon een nieuw
-  venster. Er start geen tweede server.
-- **Venster sluiten** = de app blijft op de achtergrond klaarstaan (verbruikt
-  bijna niets). Dubbelklik op het icoon en je bent meteen terug.
-- **Echt afsluiten:** de aan/uit-knop onderaan in de zijbalk. Bij het
-  afmelden of herstarten van je pc stopt de app ook vanzelf.
-- **Na een update** (bv. `git pull`) hoef je niets te doen: bij het
-  dubbelklikken merkt Elio dat er nog een oudere versie op de achtergrond
-  draait en vervangt die automatisch. Open vensters werken gewoon verder
-  (druk eventueel F5).
+> The interface is currently in Dutch. An English/Dutch language switch is planned.
 
-Voor foutzoeken: `start_app.bat` start de app mét zwart consolevenster, zodat
-je eventuele foutmeldingen ziet.
+## Features
 
-## Je gegevens en backups
+- **Dashboard.** A greeting with today's date, four key figures (open tasks, overdue,
+  deadlines this week, % done) and a card per course with progress and its next
+  deadline.
+- **Courses, sections and tasks.** Courses contain collapsible sections, which can be
+  nested as deep as you like. Each task has a type (assignment, theory, lab).
+- **Two kinds of dates.** A *hard deadline* (must be done) and a *personal target date*
+  (when you want it done), kept deliberately separate.
+- **Deadlines view.** Grouped into Overdue, Today, Next 7 days and Later, for deadlines
+  and target dates alike.
+- **Drag and drop.** Reorder courses in the sidebar and colours in Settings, by mouse or
+  by keyboard (Alt + arrow keys).
+- **Customisable colour palette.** Add colours with a colour picker or a HEX code,
+  remove or reorder them. Text on a light course colour automatically switches to dark
+  for readability.
+- **Three themes.** Light, Grey and Dark.
+- **Automatic daily backups.** Kept in `backups/` (the last 14 are retained).
+- **Feels like a real app.**
+  - It opens in its own window (Microsoft Edge app mode).
+  - Launching it again brings the existing window to the front instead of opening a second one.
+  - After an update, the background server replaces itself automatically.
 
-- Je gegevens staan in `data.db` in deze map.
-- **Automatische backup:** bij het starten (en daarna elk uur dat de app
-  draait) wordt één backup per dag gemaakt in de map `backups/`, bv.
-  `backups/data-2026-10-23.db`. De laatste 14 worden bewaard.
-- **Backup terugzetten:** sluit de app af, kopieer de gewenste backup naar
-  deze map en hernoem die naar `data.db`.
-- Wil je extra veilig zijn, kopieer dan af en toe de map `backups/` naar
-  OneDrive of een USB-stick.
-- `data.db` en `backups/` staan in `.gitignore`: je gegevens komen nooit
-  op GitHub.
+## Getting started (Windows)
 
-## Gebruik
+1. Install **Python 3.8+** from [python.org](https://www.python.org/downloads/)
+   and tick **"Add Python to PATH"** during installation.
+2. Clone or download this repository.
+3. Double-click **`snelkoppeling_maken.bat`** (Dutch for "create shortcut").
+   An **Elio** shortcut is added to your Start menu and desktop.
+4. Start Elio from the shortcut. To pin it to the taskbar: open Start, right-click
+   **Elio** and choose *Pin to taskbar*.
 
-- **Overzicht:** begroeting met de datum, vier kerncijfers (open taken,
-  te laat, deadlines deze week, afgerond) en een kaart per vak met
-  voortgang en de eerstvolgende deadline. Klik op een kaart om het vak te
-  openen, of op "Te laat" / "Deadlines deze week" voor de deadlines.
-- **Volgorde van vakken:** sleep een vak in de zijbalk naar boven of
-  beneden. Met het toetsenbord: selecteer een vak (Tab) en druk
-  Alt + pijltje omhoog/omlaag. Het overzicht volgt dezelfde volgorde.
-- **Vak:** klik op een onderdeel om het open of dicht te klappen.
-  Voeg onderdelen en sub-onderdelen toe (zo diep als je wilt).
-- **Taken:** per onderdeel. Type = opdracht / theorie / labo.
-  Vink af wanneer klaar. Wijzigen via het potlood-icoon.
-- **Deadline** = moet echt af zijn. **Streefmoment** = je persoonlijke doel.
-  Beide zijn optioneel en staan los van elkaar.
-- **Deadlines-pagina:** twee tabs, een voor harde deadlines en een voor
-  streefmomenten, telkens gegroepeerd in Te laat / Vandaag /
-  Komende 7 dagen / Later.
-- **Thema:** kies onderaan in de zijbalk tussen Licht, Grijs en Donker.
-- **Zijbalk:** de knop rechtsboven klapt de navigatie in en uit.
+For troubleshooting, run `start_app.bat` instead. It starts Elio with a console
+window that shows any error messages. Errors from the silent launcher are written to
+`fout.log`.
 
-## Mapstructuur
+## How it works
 
 ```
-Productivity App\         (mapnaam mag je vrij kiezen)
-  app.py                  de server (alleen Python-standaardbibliotheek)
-  start_app.pyw           starter zonder consolevenster (voor het icoon)
-  start_app.bat           starter mét consolevenster (voor foutzoeken)
-  maak_snelkoppeling.py   maakt het bureaubladicoon
-  snelkoppeling_maken.bat dubbelklik-versie van het script hierboven
-  data.db                 jouw gegevens (niet in git)
-  backups\                automatische dagelijkse backups (niet in git)
-  static\
-    index.html, style.css, app.js
-    icon.ico, icon.png    app-icoon
+ Elio.lnk ──► pythonw start_app.pyw ──► app.py (HTTP server on 127.0.0.1:8765)
+                                          │   ├─ REST API (/api/...)  ──► SQLite (data.db)
+                                          │   └─ static files (static/)
+                                          └─► Edge --app window  ◄── HTML/CSS/JS frontend
 ```
 
-## Problemen?
+- **Backend (`app.py`):** built on `http.server` and `sqlite3` from the standard
+  library.
+  - It exposes a small JSON API for courses, sections, tasks and settings.
+  - It only listens on `127.0.0.1`.
+  - It rejects requests with a foreign `Host` header (DNS rebinding) and non-JSON
+    write requests, so other websites cannot change your data.
+- **Single instance:** a second launch detects the running server through
+  `/api/status`.
+  - If the server's code version (a hash of `app.py`) is older, it is replaced.
+  - Otherwise the existing window is brought to the front through the Win32 API
+    (`ctypes`).
+- **Frontend (`static/`):** plain HTML, CSS and JavaScript with no framework and no
+  build step. The design uses CSS custom properties for the three themes and the Windows
+  11 *Segoe UI Variable* typeface.
 
-- **Er gebeurt niets bij dubbelklikken:** start `start_app.bat` en lees de
-  melding in het zwarte venster. Fouten van de icoon-starter komen in
-  `fout.log`.
-- **"Python is niet gevonden":** installeer Python met "Add Python to PATH",
-  of herstart je pc.
-- **"Poort 8765 is al in gebruik":** een ander programma gebruikt die poort.
-  Herstart je pc.
-- **"Geen verbinding met de app":** de server is gestopt. Dubbelklik op het
-  icoon om ze opnieuw te starten.
-- **Icoon werkt niet meer na het verplaatsen van deze map:** dubbelklik
-  opnieuw op `snelkoppeling_maken.bat`.
+### Why no frameworks?
 
-## Privacy
+Elio is meant to be something you can download and run in seconds, and something you
+can read from top to bottom. Without dependencies:
 
-De app luistert alleen op 127.0.0.1 (je eigen pc) en aanvaardt enkel
-verzoeken die van daar komen. Er is geen internetverbinding nodig.
+- there is no `npm install` or `pip install`;
+- nothing goes stale;
+- every line in the repository is part of the app.
+
+## Your data
+
+| What | Where |
+|---|---|
+| All courses, tasks and settings | `data.db` (SQLite) |
+| Daily backups (last 14) | `backups/data-YYYY-MM-DD.db` |
+
+To restore a backup:
+
+1. Stop Elio with the power button in the sidebar.
+2. Copy the backup next to `app.py`.
+3. Rename it to `data.db`.
+
+`data.db` and `backups/` are listed in `.gitignore`, so personal data never ends up
+in git.
+
+## Project structure
+
+```
+app.py                   HTTP server, REST API, SQLite, backups, single-instance launcher
+start_app.pyw            silent launcher (used by the shortcut)
+start_app.bat            launcher with console window (for troubleshooting)
+maak_snelkoppeling.py    creates the Start menu / desktop shortcut
+snelkoppeling_maken.bat  double-click wrapper for the script above
+static/
+  index.html             app shell
+  style.css              design system and themes
+  app.js                 views, state and API calls
+  icon.svg/.png/.ico     app icon
+```
+
+## Roadmap
+
+- [ ] English / Dutch language switch (English as default)
+- [ ] "Today" view: overdue, due today and tasks pinned for today
+- [ ] Semesters and an archive for finished courses
+- [ ] Task notes
+- [ ] Backups from Settings: create one now, see the history, restore
+- [ ] Windows notifications for upcoming deadlines
+- [ ] Automated tests with GitHub Actions
+- [ ] Standalone `Elio.exe` (PyInstaller) and downloadable releases
+- [ ] Statistics
+- [ ] Calendar view
+
+## License
+
+[MIT](LICENSE)

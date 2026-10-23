@@ -29,6 +29,7 @@ HOST = "127.0.0.1"
 PORT = 8765
 URL = f"http://{HOST}:{PORT}/"
 APP_ID = "elio"
+VENSTER_TITEL = "Elio"  # moet gelijk zijn aan <title> in static/index.html
 OUDE_APP_IDS = {"productivity-app"}  # vorige naam, om een oude server te herkennen
 
 # Vingerafdruk van deze code. Draait er nog een server met andere (oudere)
@@ -823,6 +824,48 @@ def open_app_venster():
     webbrowser.open(URL)
 
 
+def focus_bestaand_venster():
+    """Haalt een al geopend Elio-venster naar voren. Een Edge-app-venster
+    heeft exact de paginatitel als venstertitel ("Elio"); gewone
+    browservensters eindigen op "- Microsoft Edge" en tellen dus niet mee.
+    Geeft True terug als er een venster gevonden is."""
+    if sys.platform != "win32":
+        return False
+    import ctypes
+    from ctypes import wintypes
+    user32 = ctypes.windll.user32
+    gevonden = []
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def bekijk(hwnd, _):
+        lengte = user32.GetWindowTextLengthW(hwnd)
+        if lengte != len(VENSTER_TITEL) or not user32.IsWindowVisible(hwnd):
+            return True
+        titel = ctypes.create_unicode_buffer(lengte + 1)
+        user32.GetWindowTextW(hwnd, titel, lengte + 1)
+        klasse = ctypes.create_unicode_buffer(64)
+        user32.GetClassNameW(hwnd, klasse, 64)
+        if titel.value == VENSTER_TITEL and klasse.value.startswith("Chrome_WidgetWin"):
+            gevonden.append(hwnd)
+            return False  # stoppen met zoeken
+        return True
+
+    user32.EnumWindows(bekijk, 0)
+    if not gevonden:
+        return False
+    hwnd = gevonden[0]
+    if user32.IsIconic(hwnd):
+        user32.ShowWindow(hwnd, 9)  # SW_RESTORE: uit de taakbalk halen
+    user32.SetForegroundWindow(hwnd)
+    return True
+
+
+def toon_app():
+    # Eén Elio-venster: bestaat het al, dan dat tonen; anders een nieuw openen.
+    if not focus_bestaand_venster():
+        open_app_venster()
+
+
 def main():
     global SERVER
     if not os.path.isdir(STATIC_DIR):
@@ -837,9 +880,9 @@ def main():
                       "Herstart je pc of sluit dat programma.")
             sys.exit(1)
         if status.get("versie") == CODE_VERSIE:
-            # Draait al met dezelfde code (bv. tweede dubbelklik): enkel een
-            # venster openen.
-            open_app_venster()
+            # Draait al met dezelfde code (bv. tweede dubbelklik): bestaand
+            # venster tonen, of een nieuw openen als er geen meer open is.
+            toon_app()
             return
         # Er draait een oudere versie (bv. na een update): vervangen.
         stop_draaiende_server()
@@ -863,7 +906,7 @@ def main():
     print(f" Database: {DB_PATH}")
     print(" Sluiten: Ctrl+C in dit venster, of 'Afsluiten' in de app")
     print("=" * 60)
-    open_app_venster()
+    toon_app()
     try:
         SERVER.serve_forever()
     except KeyboardInterrupt:

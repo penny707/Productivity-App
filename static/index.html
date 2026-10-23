@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Elio</title>
   <link rel="stylesheet" href="/style.css" />
-  <link rel="icon" type="image/png" href="/icon.png" />
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="icon" type="image/png" sizes="256x256" href="/icon.png" />
 </head>
 <body>
 
@@ -13,7 +14,7 @@
   <aside id="sidebar" class="sidebar">
     <div class="sidebar-kop">
       <div class="merk">
-        <img src="/icon.png" alt="" class="merk-logo" width="26" height="26" />
+        <img src="/icon.svg" alt="" class="merk-logo" width="26" height="26" />
         <span class="merk-naam">Elio</span>
       </div>
       <button id="knop-sidebar-toggle" class="icoon-knop" title="Zijbalk in-/uitklappen" aria-label="Zijbalk in-/uitklappen">
@@ -84,12 +85,20 @@
           </svg>
         </button>
       </div>
-      <button id="knop-afsluiten" class="icoon-knop knop-afsluiten" title="App afsluiten" aria-label="App afsluiten">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
-          <line x1="12" y1="2" x2="12" y2="12" />
-        </svg>
-      </button>
+      <div class="voet-knoppen">
+        <button id="knop-instellingen" class="icoon-knop" title="Instellingen" aria-label="Instellingen">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+        <button id="knop-afsluiten" class="icoon-knop knop-afsluiten" title="App afsluiten" aria-label="App afsluiten">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+            <line x1="12" y1="2" x2="12" y2="12" />
+          </svg>
+        </button>
+      </div>
     </div>
   </aside>
 
@@ -238,6 +247,71 @@
       </div>
     </section>
 
+    <!-- ---------- VIEW: INSTELLINGEN ---------- -->
+    <section id="view-instellingen" class="view smal verborgen">
+      <header class="view-header">
+        <div>
+          <h1>Instellingen</h1>
+          <p class="view-sub">Pas Elio aan naar jouw smaak.</p>
+        </div>
+      </header>
+
+      <section class="instellingen-kaart">
+        <div class="instellingen-kop">
+          <div>
+            <h2>Kleuren voor vakken</h2>
+            <p class="klein">Uit deze kleuren kies je bij het aanmaken of bewerken van een vak.
+              Sleep om de volgorde te wijzigen; de eerste kleur krijgt een nieuw vak standaard.
+              Vakken behouden hun kleur, ook als je die hier verwijdert.</p>
+          </div>
+          <button id="knop-kleuren-herstellen" type="button" class="knop klein">Standaard herstellen</button>
+        </div>
+
+        <div id="kleuren-beheer" class="kleuren-beheer">
+          <!-- gevuld door app.js -->
+        </div>
+
+        <form id="form-kleur" class="kleur-toevoegen" novalidate>
+          <label class="kleur-kiezer" title="Kies een kleur">
+            <input type="color" id="kleur-picker" value="#4f7cac" aria-label="Kleurkiezer" />
+          </label>
+          <input type="text" id="kleur-hex" class="hex-invoer" maxlength="7" placeholder="#4F7CAC"
+                 spellcheck="false" autocomplete="off" aria-label="HEX-code" aria-describedby="kleur-fout" />
+          <button type="submit" class="knop primair">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Kleur toevoegen
+          </button>
+        </form>
+        <p id="kleur-fout" class="veld-fout" aria-live="polite"></p>
+      </section>
+
+      <section class="instellingen-kaart">
+        <div class="instellingen-kop">
+          <div>
+            <h2>Thema</h2>
+            <p class="klein">Kan je ook onderaan in de zijbalk wisselen.</p>
+          </div>
+        </div>
+        <div class="thema-tegels">
+          <button type="button" class="thema-tegel" data-thema-keuze="light">
+            <span class="thema-preview light"><span></span><span></span></span>
+            Licht
+          </button>
+          <button type="button" class="thema-tegel" data-thema-keuze="grey">
+            <span class="thema-preview grey"><span></span><span></span></span>
+            Grijs
+          </button>
+          <button type="button" class="thema-tegel" data-thema-keuze="dark">
+            <span class="thema-preview dark"><span></span><span></span></span>
+            Donker
+          </button>
+        </div>
+      </section>
+    </section>
+
   </main>
 
   <!-- ===================== MODAL: VAK ===================== -->
@@ -256,7 +330,10 @@
           <input type="text" id="vak-naam" required maxlength="80" placeholder="bv. Wiskunde" />
         </label>
         <div class="veld">
-          <span>Kleur</span>
+          <div class="veld-label-rij">
+            <span>Kleur</span>
+            <a href="#/instellingen" id="link-kleuren-beheren" class="tekst-link">Kleuren beheren</a>
+          </div>
           <div id="kleuren-palet" class="kleuren-palet">
             <!-- gevuld door app.js -->
           </div>
@@ -352,7 +429,7 @@
   <!-- ===================== APP GESLOTEN ===================== -->
   <div id="gesloten" class="gesloten verborgen">
     <div>
-      <img src="/icon.png" alt="" width="56" height="56" />
+      <img src="/icon.svg" alt="" width="56" height="56" />
       <h2>Elio is afgesloten</h2>
       <p class="klein">Je kan dit venster sluiten. Dubbelklik op het bureaubladicoon om opnieuw te starten.</p>
     </div>

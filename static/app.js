@@ -11,20 +11,24 @@ const state = {
   openOnderdelen: new Set(JSON.parse(localStorage.getItem("openOnderdelen") || "[]")),
   thema: "grey",
   sidebarIngeklapt: false,
-  kleuren: [
-    "#4F7CAC", // blauw
-    "#4A8F5C", // groen
-    "#C0504D", // rood
-    "#B8962E", // geel/oker
-    "#7A5C9E", // paars
-    "#C2713A", // oranje
-    "#3A8C8C", // teal
-    "#8C5A6E", // roze/bruin
-    "#5A6B7C", // grijsblauw
-    "#6B8E3A"  // olijfgroen
-  ],
+  kleuren: [],         // palet voor vakken; instelbaar via Instellingen
   geselecteerdeKleur: "#4F7CAC"
 };
+
+const STANDAARD_KLEUREN = [
+  "#4F7CAC", // blauw
+  "#4A8F5C", // groen
+  "#C0504D", // rood
+  "#B8962E", // geel/oker
+  "#7A5C9E", // paars
+  "#C2713A", // oranje
+  "#3A8C8C", // teal
+  "#8C5A6E", // roze/bruin
+  "#5A6B7C", // grijsblauw
+  "#6B8E3A"  // olijfgroen
+];
+const MAX_KLEUREN = 30;
+state.kleuren = [...STANDAARD_KLEUREN];
 
 // ---------- API helpers ----------
 async function api(pad, methode = "GET", body = null) {
@@ -126,7 +130,57 @@ function maakMeter(pct, kleur) {
 
 function maakVakChip(vak, groot = false) {
   const letter = (vak.naam || "?").trim().charAt(0).toUpperCase();
-  return el("span", { class: "vak-chip" + (groot ? " groot" : ""), style: `--vak:${vak.kleur}` }, letter);
+  return el("span", {
+    class: "vak-chip" + (groot ? " groot" : ""),
+    style: `--vak:${vak.kleur}; color:${tekstKleurOp(vak.kleur)}`
+  }, letter);
+}
+
+// ---------- Kleur helpers ----------
+// "#abc", "abc", "#AABBCC" of "aabbcc" -> "#AABBCC"; ongeldig -> null
+function normaliseerHex(invoer) {
+  let s = String(invoer || "").trim().replace(/^#/, "");
+  if (/^[0-9a-f]{3}$/i.test(s)) s = s.split("").map(c => c + c).join("");
+  if (!/^[0-9a-f]{6}$/i.test(s)) return null;
+  return "#" + s.toUpperCase();
+}
+
+// Witte of donkere tekst, afhankelijk van hoe licht de achtergrondkleur is
+function tekstKleurOp(hex) {
+  const h = normaliseerHex(hex);
+  if (!h) return "#fff";
+  const [r, g, b] = [1, 3, 5].map(i => {
+    const c = parseInt(h.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum > 0.4 ? "#1a1d23" : "#fff";
+}
+
+function zelfdeKleur(a, b) {
+  return normaliseerHex(a) === normaliseerHex(b);
+}
+
+// Palet uit de instellingen lezen (JSON-lijst); bij iets ongeldigs: standaard
+function laadKleuren(waarde) {
+  try {
+    const lijst = JSON.parse(waarde).map(normaliseerHex).filter(Boolean);
+    if (lijst.length) return [...new Set(lijst)];
+  } catch (e) { /* geen of ongeldige instelling */ }
+  return [...STANDAARD_KLEUREN];
+}
+
+async function bewaarKleuren(kleuren, melding) {
+  const oud = state.kleuren;
+  state.kleuren = kleuren;
+  renderInstellingen();
+  try {
+    await api("/instellingen", "PUT", { kleuren: JSON.stringify(kleuren) });
+    if (melding) toast(melding);
+  } catch (e) {
+    state.kleuren = oud;
+    renderInstellingen();
+  }
 }
 
 // ---------- Toast ----------
@@ -222,6 +276,7 @@ function route() {
   const delen = hash.slice(2).split("/").filter(Boolean);
 
   $$(".nav-item").forEach(n => n.classList.remove("actief"));
+  $("#knop-instellingen").classList.toggle("actief", delen[0] === "instellingen");
   if (delen[0] !== "vak") {
     state.actiefVakId = null;
     markeerActiefVak();
@@ -241,6 +296,9 @@ function route() {
     renderDeadlines();
     const nav = $('[data-route="deadlines"]');
     if (nav) nav.classList.add("actief");
+  } else if (delen[0] === "instellingen") {
+    toonView("instellingen");
+    renderInstellingen();
   } else {
     location.hash = "#/";
   }
@@ -909,16 +967,22 @@ function sluitAlleModals() {
   $$(".modal-achtergrond").forEach(m => m.classList.add("verborgen"));
 }
 
-// Kleurenpalet vullen
+// Kleurenpalet vullen (in het vak-venster)
 function renderKleurenPalet() {
   const palet = $("#kleuren-palet");
   palet.innerHTML = "";
-  for (const kleur of state.kleuren) {
+  // Huidige kleur van het vak altijd tonen, ook als ze niet (meer) in het palet zit
+  const kleuren = [...state.kleuren];
+  if (!kleuren.some(k => zelfdeKleur(k, state.geselecteerdeKleur))) {
+    kleuren.push(state.geselecteerdeKleur);
+  }
+  for (const kleur of kleuren) {
     const knop = el("button", {
       type: "button",
-      class: "kleur-optie" + (kleur === state.geselecteerdeKleur ? " geselecteerd" : ""),
-      style: `background:${kleur}`,
+      class: "kleur-optie" + (zelfdeKleur(kleur, state.geselecteerdeKleur) ? " geselecteerd" : ""),
+      style: `background:${kleur}; --vink:${tekstKleurOp(kleur)}`,
       title: kleur,
+      "aria-label": `Kleur ${kleur}`,
       onclick: () => {
         state.geselecteerdeKleur = kleur;
         renderKleurenPalet();
@@ -928,12 +992,153 @@ function renderKleurenPalet() {
   }
 }
 
+// =========================================================
+// INSTELLINGEN
+// =========================================================
+function renderInstellingen() {
+  const lijst = $("#kleuren-beheer");
+  if (!lijst) return;
+  // Focus onthouden, zodat je met Alt+pijltjes meerdere keren kan verplaatsen
+  const focusKleur = lijst.contains(document.activeElement) ? document.activeElement.dataset.kleur : null;
+  lijst.innerHTML = "";
+
+  for (const kleur of state.kleuren) {
+    const gebruik = state.vakken.filter(v => zelfdeKleur(v.kleur, kleur));
+    const item = el("div", {
+      class: "kleur-item",
+      tabindex: "0",
+      draggable: "true",
+      dataset: { kleur },
+      title: "Sleep om de volgorde te wijzigen",
+      "aria-label": `${kleur}. Alt + pijltje links of rechts om te verplaatsen.`,
+      ondragstart: (e) => {
+        sleepKleur = kleur;
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", kleur);
+        item.classList.add("slepen");
+      },
+      ondragover: (e) => {
+        if (sleepKleur === null) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        const pos = kleurDropPositie(e, item);
+        item.classList.toggle("drop-voor", pos === "voor");
+        item.classList.toggle("drop-na", pos === "na");
+      },
+      ondragleave: () => item.classList.remove("drop-voor", "drop-na"),
+      ondrop: (e) => {
+        e.preventDefault();
+        const versleept = sleepKleur;
+        const pos = kleurDropPositie(e, item);
+        stopKleurSlepen();
+        if (versleept === null || versleept === kleur) return;
+        const kleuren = state.kleuren.filter(k => k !== versleept);
+        let idx = kleuren.indexOf(kleur);
+        if (pos === "na") idx++;
+        kleuren.splice(idx, 0, versleept);
+        bewaarKleuren(kleuren);
+      },
+      ondragend: stopKleurSlepen,
+      onkeydown: (e) => verplaatsKleurMetToetsen(e, kleur)
+    });
+    lijst.appendChild(item);
+    item.append(
+      el("span", { class: "kleur-staal", style: `background:${kleur}` }),
+      el("code", { class: "kleur-hex" }, kleur),
+      el("span", {
+        class: "kleur-gebruik",
+        title: gebruik.map(v => v.naam).join(", ") || null
+      }, gebruik.length === 0 ? " " : gebruik.length === 1 ? "1 vak" : `${gebruik.length} vakken`),
+      el("button", {
+        type: "button",
+        class: "icoon-knop kleur-verwijder",
+        title: `${kleur} verwijderen`,
+        "aria-label": `Kleur ${kleur} verwijderen`,
+        draggable: "false",
+        onclick: () => verwijderKleur(kleur)
+      }, svgIcoon(ICOON.sluiten, 13, 2.2))
+    );
+  }
+
+  if (focusKleur) {
+    const terug = lijst.querySelector(`[data-kleur="${focusKleur}"]`);
+    if (terug) terug.focus();
+  }
+}
+
+// ---------- Kleuren herordenen (slepen of Alt+pijltjes) ----------
+let sleepKleur = null;
+
+// Linker- of rechterhelft van de kleur waarover gesleept wordt (raster)
+function kleurDropPositie(e, item) {
+  const r = item.getBoundingClientRect();
+  return e.clientX < r.left + r.width / 2 ? "voor" : "na";
+}
+
+function stopKleurSlepen() {
+  sleepKleur = null;
+  $$(".kleur-item").forEach(n => n.classList.remove("slepen", "drop-voor", "drop-na"));
+}
+
+function verplaatsKleurMetToetsen(e, kleur) {
+  const richting = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
+  if (!e.altKey || !richting) return;
+  e.preventDefault();
+  const kleuren = [...state.kleuren];
+  const i = kleuren.indexOf(kleur);
+  const j = i + richting;
+  if (j < 0 || j >= kleuren.length) return;
+  [kleuren[i], kleuren[j]] = [kleuren[j], kleuren[i]];
+  bewaarKleuren(kleuren);
+}
+
+function verwijderKleur(kleur) {
+  if (state.kleuren.length <= 1) {
+    toast("Je hebt minstens één kleur nodig.", "fout");
+    return;
+  }
+  bewaarKleuren(state.kleuren.filter(k => !zelfdeKleur(k, kleur)), `${kleur} verwijderd`);
+}
+
+function toonKleurFout(tekst) {
+  $("#kleur-fout").textContent = tekst;
+  $("#kleur-hex").classList.toggle("ongeldig", !!tekst);
+}
+
+function voegKleurToe() {
+  const invoer = $("#kleur-hex").value.trim();
+  const kleur = normaliseerHex(invoer || $("#kleur-picker").value);
+  if (!kleur) {
+    toonKleurFout("Geen geldige HEX-code. Gebruik bv. #4F7CAC of 4F7CAC.");
+    return;
+  }
+  if (state.kleuren.some(k => zelfdeKleur(k, kleur))) {
+    toonKleurFout(`${kleur} staat al in je kleuren.`);
+    return;
+  }
+  if (state.kleuren.length >= MAX_KLEUREN) {
+    toonKleurFout(`Je kan maximaal ${MAX_KLEUREN} kleuren bewaren.`);
+    return;
+  }
+  toonKleurFout("");
+  $("#kleur-hex").value = "";
+  bewaarKleuren([...state.kleuren, kleur], `${kleur} toegevoegd`);
+}
+
+function herstelStandaardKleuren() {
+  bevestig("Standaardkleuren herstellen?",
+    "Je eigen kleurenlijst wordt vervangen door de 10 standaardkleuren. " +
+    "Bestaande vakken behouden hun kleur.",
+    () => bewaarKleuren([...STANDAARD_KLEUREN], "Standaardkleuren hersteld"),
+    "Herstellen");
+}
+
 // --- Modal: Vak ---
 function openModalVak(vak = null) {
   $("#modal-vak-titel").textContent = vak ? "Vak bewerken" : "Nieuw vak";
   $("#vak-id").value = vak ? vak.id : "";
   $("#vak-naam").value = vak ? vak.naam : "";
-  state.geselecteerdeKleur = vak ? vak.kleur : "#4F7CAC";
+  state.geselecteerdeKleur = vak ? vak.kleur : state.kleuren[0];
   renderKleurenPalet();
   toonModal("modal-vak");
   setTimeout(() => $("#vak-naam").focus(), 50);
@@ -1119,6 +1324,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const inst = await api("/instellingen");
     pasThemaToe(inst.thema || "grey");
     pasSidebarToe(inst.sidebar_ingeklapt === "1");
+    state.kleuren = laadKleuren(inst.kleuren);
   } catch (e) {
     pasThemaToe("grey");
   }
@@ -1129,6 +1335,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     k.addEventListener("click", () => kiesThema(k.dataset.themaKeuze));
   });
   $("#knop-afsluiten").addEventListener("click", bevestigAfsluiten);
+  $("#knop-instellingen").addEventListener("click", () => { location.hash = "#/instellingen"; });
+
+  // Instellingen: kleuren beheren
+  $("#form-kleur").addEventListener("submit", (e) => { e.preventDefault(); voegKleurToe(); });
+  $("#kleur-picker").addEventListener("input", (e) => {
+    $("#kleur-hex").value = e.target.value.toUpperCase();
+    toonKleurFout("");
+  });
+  $("#kleur-hex").addEventListener("input", (e) => {
+    const kleur = normaliseerHex(e.target.value);
+    if (kleur) $("#kleur-picker").value = kleur.toLowerCase();
+    toonKleurFout("");
+  });
+  $("#knop-kleuren-herstellen").addEventListener("click", herstelStandaardKleuren);
+  $("#link-kleuren-beheren").addEventListener("click", () => sluitModal("modal-vak"));
   $("#knop-nieuw-vak").addEventListener("click", () => openModalVak());
   $("#knop-vak-toevoegen-boven").addEventListener("click", () => openModalVak());
   $("#knop-onderdeel-toevoegen").addEventListener("click", () => openModalOnderdeel());
