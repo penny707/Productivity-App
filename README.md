@@ -1,6 +1,6 @@
-# Productivity App
+# Elio
 
-Lokale schooltaak-tracker. Je houdt je taken per vak bij, met harde deadlines
+Lokale productiviteitsapp en schooltaak-tracker. Je houdt je taken per vak bij, met harde deadlines
 en persoonlijke streefmomenten. Alles wordt opgeslagen in een SQLite-database
 (`data.db`) in deze map. Er gaat niets naar het internet.
 
@@ -9,7 +9,7 @@ en persoonlijke streefmomenten. Alles wordt opgeslagen in een SQLite-database
 1. Installeer **Python 3.8 of nieuwer** via https://www.python.org/downloads/
    en vink tijdens de installatie **"Add Python to PATH"** aan.
 2. Dubbelklik op **`snelkoppeling_maken.bat`**.
-   Er verschijnt een icoon **"Productivity App"** op je bureaublad.
+   Er verschijnt een icoon **"Elio"** op je bureaublad.
 
 ## Starten en stoppen
 
@@ -22,6 +22,10 @@ en persoonlijke streefmomenten. Alles wordt opgeslagen in een SQLite-database
   bijna niets). Dubbelklik op het icoon en je bent meteen terug.
 - **Echt afsluiten:** de aan/uit-knop onderaan in de zijbalk. Bij het
   afmelden of herstarten van je pc stopt de app ook vanzelf.
+- **Na een update** (bv. `git pull`) hoef je niets te doen: bij het
+  dubbelklikken merkt Elio dat er nog een oudere versie op de achtergrond
+  draait en vervangt die automatisch. Open vensters werken gewoon verder
+  (druk eventueel F5).
 
 Voor foutzoeken: `start_app.bat` start de app mét zwart consolevenster, zodat
 je eventuele foutmeldingen ziet.
@@ -43,6 +47,9 @@ je eventuele foutmeldingen ziet.
 
 - **Overzicht:** blokken per vak met voortgangsbalk en percentage.
   Klik op een blok om het vak te openen.
+- **Volgorde van vakken:** sleep een vak in de zijbalk naar boven of
+  beneden. Met het toetsenbord: selecteer een vak (Tab) en druk
+  Alt + pijltje omhoog/omlaag. Het overzicht volgt dezelfde volgorde.
 - **Vak:** klik op een onderdeel om het open of dicht te klappen.
   Voeg onderdelen en sub-onderdelen toe (zo diep als je wilt).
 - **Taken:** per onderdeel. Type = opdracht / theorie / labo.
@@ -57,7 +64,7 @@ je eventuele foutmeldingen ziet.
 ## Mapstructuur
 
 ```
-Productivity App\
+Productivity App\         (mapnaam mag je vrij kiezen)
   app.py                  de server (alleen Python-standaardbibliotheek)
   start_app.pyw           starter zonder consolevenster (voor het icoon)
   start_app.bat           starter mét consolevenster (voor foutzoeken)

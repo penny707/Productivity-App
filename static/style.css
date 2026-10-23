@@ -1,5 +1,5 @@
 /* =========================================================
-   Productivity App — style.css
+   Elio — style.css
    Thema's: light / grey / dark via html[data-thema]
    ========================================================= */
 
@@ -150,10 +150,10 @@ a:focus-visible {
 }
 
 .sidebar-titel {
-  font-weight: 600;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-  color: var(--tekst-zacht);
+  font-weight: 650;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  color: var(--tekst);
   white-space: nowrap;
   transition: opacity var(--transitie);
 }
@@ -272,6 +272,23 @@ a:focus-visible {
 }
 .vak-nav-item:hover { background: var(--bg-hover); color: var(--tekst); }
 .vak-nav-item.actief { background: var(--bg-actief); color: var(--tekst); font-weight: 500; }
+
+/* Slepen om te herordenen: lijn toont waar het vak terechtkomt */
+.vak-nav-item { position: relative; }
+.vak-nav-item.slepen { opacity: 0.4; }
+.vak-nav-item.drop-boven::before,
+.vak-nav-item.drop-onder::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--kleur-accent);
+  pointer-events: none;
+}
+.vak-nav-item.drop-boven::before { top: -2px; }
+.vak-nav-item.drop-onder::after { bottom: -2px; }
 
 .vak-stip {
   width: 10px;

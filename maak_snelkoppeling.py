@@ -1,5 +1,5 @@
 # maak_snelkoppeling.py
-# Zet een snelkoppeling "Productivity App" (met icoon) op je bureaublad.
+# Zet een snelkoppeling "Elio" (met icoon) op je bureaublad.
 # Start met: python maak_snelkoppeling.py  (of dubbelklik snelkoppeling_maken.bat)
 
 import os
@@ -24,13 +24,19 @@ def main():
 
     script = f"""
 $bureaublad = [Environment]::GetFolderPath('Desktop')
-$pad = Join-Path $bureaublad 'Productivity App.lnk'
-$s = (New-Object -ComObject WScript.Shell).CreateShortcut($pad)
+$shell = New-Object -ComObject WScript.Shell
+# Snelkoppeling van vóór de naamswijziging opruimen (enkel als die naar deze app wijst)
+$oud = Join-Path $bureaublad 'Productivity App.lnk'
+if ((Test-Path $oud) -and ($shell.CreateShortcut($oud).Arguments -like '*start_app.pyw*')) {{
+    Remove-Item $oud
+}}
+$pad = Join-Path $bureaublad 'Elio.lnk'
+$s = $shell.CreateShortcut($pad)
 $s.TargetPath = {ps_tekst(pythonw)}
 $s.Arguments = {ps_tekst('"' + STARTER + '"')}
 $s.WorkingDirectory = {ps_tekst(BASE_DIR)}
 $s.IconLocation = {ps_tekst(ICOON + ",0")}
-$s.Description = 'Productivity App'
+$s.Description = 'Elio'
 $s.Save()
 Write-Output $pad
 """

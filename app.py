@@ -1,9 +1,10 @@
 # app.py
-# Lokale productivity app server - Python standaardbibliotheek only.
+# Elio - lokale productiviteitsapp. Server met alleen de Python-standaardbibliotheek.
 # Start met: python app.py  (of dubbelklik op het bureaubladicoon)
 # De app opent in een eigen venster op http://127.0.0.1:8765
 
 import datetime
+import hashlib
 import json
 import os
 import sqlite3
@@ -27,7 +28,13 @@ BACKUPS_BEWAREN = 14
 HOST = "127.0.0.1"
 PORT = 8765
 URL = f"http://{HOST}:{PORT}/"
-APP_ID = "productivity-app"
+APP_ID = "elio"
+OUDE_APP_IDS = {"productivity-app"}  # vorige naam, om een oude server te herkennen
+
+# Vingerafdruk van deze code. Draait er nog een server met andere (oudere)
+# code, dan wordt die bij het starten automatisch vervangen.
+with open(os.path.abspath(__file__), "rb") as _f:
+    CODE_VERSIE = hashlib.sha1(_f.read()).hexdigest()[:12]
 
 # Alleen verzoeken met deze Host-header worden aanvaard (bescherming tegen
 # DNS-rebinding: andere websites kunnen zo niet bij je gegevens).
@@ -205,6 +212,21 @@ def api_vakken(handler, methode, pad_delen, body):
             stuur_json(handler, row_to_dict(cur.fetchone()), status=201)
             conn.close()
             return True
+
+    # /api/vakken/volgorde  (PUT {"ids": [3, 1, 2]})  - nieuwe volgorde in één keer
+    if len(pad_delen) == 3 and pad_delen[2] == "volgorde" and methode == "PUT":
+        ids = body.get("ids")
+        if not isinstance(ids, list):
+            stuur_fout(handler, 400, "ids moet een lijst zijn.")
+            conn.close()
+            return True
+        for volgorde, vak_id in enumerate(ids):
+            cur.execute("UPDATE vakken SET volgorde = ? WHERE id = ?", (volgorde, int(vak_id)))
+        conn.commit()
+        cur.execute("SELECT * FROM vakken ORDER BY volgorde, id")
+        stuur_json(handler, [row_to_dict(r) for r in cur.fetchall()])
+        conn.close()
+        return True
 
     # /api/vakken/<id>
     if len(pad_delen) == 3:
@@ -602,7 +624,7 @@ def api_overzicht(handler):
 # HTTP Handler
 # ----------------------------------------------------------------------------
 class AppHandler(BaseHTTPRequestHandler):
-    server_version = "ProductivityApp/1.0"
+    server_version = "Elio/1.0"
 
     def log_message(self, fmt, *args):
         # Stille logging; alleen echte fouten tonen we liever niet in de console.
@@ -631,7 +653,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 body = {}
             try:
                 if delen[1] == "status" and methode == "GET":
-                    stuur_json(self, {"app": APP_ID})
+                    stuur_json(self, {"app": APP_ID, "versie": CODE_VERSIE})
                     return
                 elif delen[1] == "afsluiten" and methode == "POST":
                     stuur_json(self, {"ok": True})
@@ -736,17 +758,46 @@ def meld_fout(bericht):
         print(f"[!] {bericht}")
     else:
         import ctypes
-        ctypes.windll.user32.MessageBoxW(None, bericht, "Productivity App", 0x10)
+        ctypes.windll.user32.MessageBoxW(None, bericht, "Elio", 0x10)
 
 
-def server_draait():
-    """True als onze app al op de poort luistert (bv. tweede dubbelklik)."""
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+def _opener():
+    # Geen proxy gebruiken voor verzoeken naar onze eigen pc
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def status_draaiende_server():
+    """Geeft de status van de server op de poort terug, of None als het niet
+    onze app is (of er niets luistert)."""
     try:
-        with opener.open(f"{URL}api/status", timeout=1.5) as res:
-            return json.loads(res.read().decode("utf-8")).get("app") == APP_ID
+        with _opener().open(f"{URL}api/status", timeout=1.5) as res:
+            status = json.loads(res.read().decode("utf-8"))
     except Exception:
-        return False
+        return None
+    if status.get("app") in {APP_ID} | OUDE_APP_IDS:
+        return status
+    return None
+
+
+def stop_draaiende_server():
+    req = urllib.request.Request(
+        f"{URL}api/afsluiten", data=b"{}", method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        _opener().open(req, timeout=3).read()
+    except Exception:
+        pass
+
+
+def bind_server(pogingen=1):
+    for i in range(pogingen):
+        try:
+            return AppServer((HOST, PORT), AppHandler)
+        except OSError:
+            if i == pogingen - 1:
+                raise
+            time.sleep(0.25)
 
 
 def zoek_edge():
@@ -778,16 +829,26 @@ def main():
         meld_fout(f"Map 'static' niet gevonden op {STATIC_DIR}")
         return
     try:
-        SERVER = AppServer((HOST, PORT), AppHandler)
+        SERVER = bind_server()
     except OSError:
-        # Poort bezet: draait de app al (bv. tweede dubbelklik)? Dan enkel
-        # een venster openen.
-        if server_draait():
+        status = status_draaiende_server()
+        if status is None:
+            meld_fout(f"Poort {PORT} is al in gebruik door een ander programma.\n"
+                      "Herstart je pc of sluit dat programma.")
+            sys.exit(1)
+        if status.get("versie") == CODE_VERSIE:
+            # Draait al met dezelfde code (bv. tweede dubbelklik): enkel een
+            # venster openen.
             open_app_venster()
             return
-        meld_fout(f"Poort {PORT} is al in gebruik door een ander programma.\n"
-                  "Herstart je pc of sluit dat programma.")
-        sys.exit(1)
+        # Er draait een oudere versie (bv. na een update): vervangen.
+        stop_draaiende_server()
+        try:
+            SERVER = bind_server(pogingen=20)
+        except OSError:
+            meld_fout("De vorige versie van Elio kon niet gestopt worden.\n"
+                      "Herstart je pc en probeer opnieuw.")
+            sys.exit(1)
 
     init_db()
     try:
@@ -797,7 +858,7 @@ def main():
 
     threading.Thread(target=backup_lus, daemon=True).start()
     print("=" * 60)
-    print(" Productivity App draait")
+    print(" Elio draait")
     print(f" Open: {URL}")
     print(f" Database: {DB_PATH}")
     print(" Sluiten: Ctrl+C in dit venster, of 'Afsluiten' in de app")

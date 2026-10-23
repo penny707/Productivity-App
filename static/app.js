@@ -1,5 +1,5 @@
 /* =========================================================
-   Productivity App — app.js
+   Elio — app.js
    ========================================================= */
 
 // ---------- State ----------
@@ -222,6 +222,8 @@ function toonView(naam) {
 // =========================================================
 function renderSidebarVakken() {
   const nav = $("#sidebar-vakken");
+  // Focus onthouden, zodat je met Alt+pijltjes meerdere keren kan verplaatsen
+  const focusVakId = nav.contains(document.activeElement) ? document.activeElement.dataset.vakId : null;
   nav.innerHTML = "";
   if (state.vakken.length === 0) return;
 
@@ -229,13 +231,94 @@ function renderSidebarVakken() {
     const item = el("button", {
       class: "vak-nav-item" + (v.id === state.actiefVakId ? " actief" : ""),
       title: v.naam,
+      draggable: "true",
       dataset: { vakId: v.id },
-      onclick: () => { location.hash = `#/vak/${v.id}`; }
+      onclick: () => { location.hash = `#/vak/${v.id}`; },
+      ondragstart: (e) => startSlepen(e, v.id),
+      ondragover: (e) => overSlepen(e, item),
+      ondragleave: () => item.classList.remove("drop-boven", "drop-onder"),
+      ondrop: (e) => dropVak(e, v.id, item),
+      ondragend: stopSlepen,
+      onkeydown: (e) => verplaatsMetToetsen(e, v.id)
     }, [
       el("span", { class: "vak-stip", style: `background:${v.kleur}` }),
       el("span", { class: "vak-nav-naam" }, v.naam)
     ]);
     nav.appendChild(item);
+  }
+
+  if (focusVakId) {
+    const knop = nav.querySelector(`[data-vak-id="${focusVakId}"]`);
+    if (knop) knop.focus();
+  }
+}
+
+// ---------- Vakken herordenen (slepen of Alt+pijltjes) ----------
+let sleepVakId = null;
+
+function startSlepen(e, id) {
+  sleepVakId = id;
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", String(id));
+  e.currentTarget.classList.add("slepen");
+}
+
+// Boven- of onderhelft van het vak waarover gesleept wordt
+function dropPositie(e, item) {
+  const r = item.getBoundingClientRect();
+  return e.clientY < r.top + r.height / 2 ? "boven" : "onder";
+}
+
+function overSlepen(e, item) {
+  if (sleepVakId === null) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  const pos = dropPositie(e, item);
+  item.classList.toggle("drop-boven", pos === "boven");
+  item.classList.toggle("drop-onder", pos === "onder");
+}
+
+function dropVak(e, doelId, item) {
+  e.preventDefault();
+  const id = sleepVakId;
+  const pos = dropPositie(e, item);
+  stopSlepen();
+  if (id === null || id === doelId) return;
+  const ids = state.vakken.map(v => v.id).filter(x => x !== id);
+  let idx = ids.indexOf(doelId);
+  if (pos === "onder") idx++;
+  ids.splice(idx, 0, id);
+  bewaarVakVolgorde(ids);
+}
+
+function stopSlepen() {
+  sleepVakId = null;
+  $$(".vak-nav-item").forEach(n => n.classList.remove("slepen", "drop-boven", "drop-onder"));
+}
+
+function verplaatsMetToetsen(e, id) {
+  if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+  e.preventDefault();
+  const ids = state.vakken.map(v => v.id);
+  const i = ids.indexOf(id);
+  const j = e.key === "ArrowUp" ? i - 1 : i + 1;
+  if (j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  bewaarVakVolgorde(ids);
+}
+
+async function bewaarVakVolgorde(ids) {
+  // Meteen tonen, daarna opslaan; bij een fout de oude volgorde terugzetten
+  const oud = state.vakken;
+  const perId = new Map(oud.map(v => [v.id, v]));
+  state.vakken = ids.map(id => perId.get(id));
+  renderSidebarVakken();
+  try {
+    await api("/vakken/volgorde", "PUT", { ids });
+    if (!location.hash || location.hash === "#/") renderOverzicht();
+  } catch (e) {
+    state.vakken = oud;
+    renderSidebarVakken();
   }
 }
 
