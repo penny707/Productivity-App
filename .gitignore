@@ -1,0 +1,9 @@
+# Persoonlijke gegevens - nooit in git
+data.db
+data.db-journal
+backups/
+
+# Python / logs
+__pycache__/
+*.pyc
+fout.log

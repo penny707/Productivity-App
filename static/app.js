@@ -34,7 +34,12 @@ async function api(pad, methode = "GET", body = null) {
   };
   if (body) opties.body = JSON.stringify(body);
   try {
-    const res = await fetch(`/api${pad}`, opties);
+    let res;
+    try {
+      res = await fetch(`/api${pad}`, opties);
+    } catch (netwerkFout) {
+      throw new Error("Geen verbinding met de app. Start ze opnieuw via het bureaubladicoon.");
+    }
     if (!res.ok) {
       const fout = await res.json().catch(() => ({}));
       throw new Error(fout.fout || `HTTP ${res.status}`);
@@ -95,6 +100,8 @@ const ICOON = {
   sub: "M3 6h18M3 12h12M3 18h6",
   taak: "M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
 };
+
+const TYPES = ["opdracht", "theorie", "labo"];
 
 // ---------- Toast ----------
 let toastTimer = null;
@@ -179,7 +186,10 @@ function route() {
   const delen = hash.slice(2).split("/").filter(Boolean);
 
   $$(".nav-item").forEach(n => n.classList.remove("actief"));
-  $$(".vak-nav-item").forEach(n => n.classList.remove("actief"));
+  if (delen[0] !== "vak") {
+    state.actiefVakId = null;
+    markeerActiefVak();
+  }
 
   if (delen.length === 0 || delen[0] === "") {
     toonView("overzicht");
@@ -219,6 +229,7 @@ function renderSidebarVakken() {
     const item = el("button", {
       class: "vak-nav-item" + (v.id === state.actiefVakId ? " actief" : ""),
       title: v.naam,
+      dataset: { vakId: v.id },
       onclick: () => { location.hash = `#/vak/${v.id}`; }
     }, [
       el("span", { class: "vak-stip", style: `background:${v.kleur}` }),
@@ -226,6 +237,22 @@ function renderSidebarVakken() {
     ]);
     nav.appendChild(item);
   }
+}
+
+// Vakkenlijst ophalen, los van welke pagina open staat (ook na verversen).
+async function vernieuwSidebar() {
+  try {
+    state.vakken = await api("/vakken");
+    renderSidebarVakken();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function markeerActiefVak() {
+  $$(".vak-nav-item").forEach(n => {
+    n.classList.toggle("actief", Number(n.dataset.vakId) === state.actiefVakId);
+  });
 }
 
 // =========================================================
@@ -292,65 +319,76 @@ async function renderOverzicht() {
 // =========================================================
 async function laadVak(id) {
   try {
-    const [vak, onderdelen, alleTaken, overzicht] = await Promise.all([
+    const [vak, onderdelen, taken] = await Promise.all([
       api(`/vakken/${id}`),
       api(`/onderdelen?vak_id=${id}`),
-      api(`/taken`),
-      api("/overzicht")
+      api(`/taken?vak_id=${id}`)
     ]);
 
     state.actiefVakId = id;
+    state.vak = vak;
     state.onderdelen[id] = bouwBoom(onderdelen);
     state.taken = {};
-    for (const t of alleTaken) {
+    for (const t of taken) {
       if (!state.taken[t.onderdeel_id]) state.taken[t.onderdeel_id] = [];
       state.taken[t.onderdeel_id].push(t);
     }
 
-    // Sidebar vak actief markeren
-    $$(".vak-nav-item").forEach(n => n.classList.remove("actief"));
-    const navItems = $$(".vak-nav-item");
-    const idx = state.vakken.findIndex(v => v.id === id);
-    if (idx >= 0 && navItems[idx]) navItems[idx].classList.add("actief");
-
-    // Header
-    $("#vak-titel").textContent = vak.naam;
-    $("#vak-titel").style.color = "";
-    const vp = overzicht.vakken.find(v => v.id === id);
-    if (vp) {
-      const p = vp.progress;
-      const pct = p.totaal === 0 ? 0 : Math.round((p.klaar / p.totaal) * 100);
-      $("#vak-sub").textContent = p.totaal === 0
-        ? "Nog geen taken in dit vak."
-        : `${p.klaar} van ${p.totaal} taken afgerond.`;
-
-      const typesHtml = [];
-      const typeLabels = { opdracht: "Opdrachten", theorie: "Theorie", labo: "Labo" };
-      for (const [type, label] of Object.entries(typeLabels)) {
-        const [klaar, totaal] = p.per_type[type] || [0, 0];
-        typesHtml.push(el("div", { class: "vak-progress-type" }, [
-          el("strong", {}, `${klaar}/${totaal}`),
-          el("span", {}, label)
-        ]));
-      }
-
-      const pDiv = $("#vak-progress");
-      pDiv.innerHTML = "";
-      pDiv.appendChild(el("div", { class: "vak-progress-rij" }, [
-        el("span", { class: "vak-progress-label" }, "Voortgang"),
-        el("span", { class: "vak-progress-pct" }, `${pct}%`)
-      ]));
-      pDiv.appendChild(el("div", { class: "progress-balk" }, [
-        el("div", { style: `width:${pct}%; background:${vak.kleur}` })
-      ]));
-      pDiv.appendChild(el("div", { class: "vak-progress-types" }, typesHtml));
-    }
-
-    renderOnderdelen(id);
+    markeerActiefVak();
+    renderVak();
   } catch (e) {
     console.error(e);
     location.hash = "#/";
   }
+}
+
+// Header + voortgang + onderdelen tekenen vanuit de lokale state (geen API-calls).
+function renderVak() {
+  const vak = state.vak;
+  if (!vak) return;
+
+  const per_type = {};
+  for (const type of TYPES) per_type[type] = [0, 0];
+  let klaar = 0, totaal = 0;
+  for (const lijst of Object.values(state.taken)) {
+    for (const t of lijst) {
+      totaal++;
+      if (t.klaar) klaar++;
+      if (per_type[t.type]) {
+        per_type[t.type][1]++;
+        if (t.klaar) per_type[t.type][0]++;
+      }
+    }
+  }
+  const pct = totaal === 0 ? 0 : Math.round((klaar / totaal) * 100);
+
+  $("#vak-titel").textContent = vak.naam;
+  $("#vak-sub").textContent = totaal === 0
+    ? "Nog geen taken in dit vak."
+    : `${klaar} van ${totaal} taken afgerond.`;
+
+  const typesHtml = [];
+  const typeLabels = { opdracht: "Opdrachten", theorie: "Theorie", labo: "Labo" };
+  for (const [type, label] of Object.entries(typeLabels)) {
+    const [k, t] = per_type[type];
+    typesHtml.push(el("div", { class: "vak-progress-type" }, [
+      el("strong", {}, `${k}/${t}`),
+      el("span", {}, label)
+    ]));
+  }
+
+  const pDiv = $("#vak-progress");
+  pDiv.innerHTML = "";
+  pDiv.appendChild(el("div", { class: "vak-progress-rij" }, [
+    el("span", { class: "vak-progress-label" }, "Voortgang"),
+    el("span", { class: "vak-progress-pct" }, `${pct}%`)
+  ]));
+  pDiv.appendChild(el("div", { class: "progress-balk" }, [
+    el("div", { style: `width:${pct}%; background:${vak.kleur}` })
+  ]));
+  pDiv.appendChild(el("div", { class: "vak-progress-types" }, typesHtml));
+
+  renderOnderdelen(vak.id);
 }
 
 function bouwBoom(onderdelen) {
@@ -388,18 +426,23 @@ function renderOnderdelen(vakId) {
   }
 }
 
+// Telt taken van een onderdeel inclusief alle sub-onderdelen (elk niveau diep).
+function telTaken(o) {
+  const eigen = state.taken[o.id] || [];
+  let klaar = eigen.filter(t => t.klaar).length;
+  let totaal = eigen.length;
+  for (const c of o.children) {
+    const [k, t] = telTaken(c);
+    klaar += k;
+    totaal += t;
+  }
+  return [klaar, totaal];
+}
+
 function maakOnderdeelElement(o, isSub) {
   const isOpen = state.openOnderdelen.has(o.id);
   const takenVanO = state.taken[o.id] || [];
-
-  // Tel taken inclusief sub-onderdelen
-  let totaal = takenVanO.length;
-  let klaar = takenVanO.filter(t => t.klaar).length;
-  for (const c of o.children) {
-    const tc = state.taken[c.id] || [];
-    totaal += tc.length;
-    klaar += tc.filter(t => t.klaar).length;
-  }
+  const [klaar, totaal] = telTaken(o);
 
   const kop = el("div", {
     class: "onderdeel-kop",
@@ -525,24 +568,15 @@ function maakTaakElement(t) {
 async function toggleTaakKlaar(id, klaar) {
   try {
     await api(`/taken/${id}`, "PUT", { klaar });
-    // Optimistisch: lokale state updaten
+    // Lokale state bijwerken en opnieuw tekenen; geen volledige herlaadbeurt nodig
     for (const oid in state.taken) {
       const t = state.taken[oid].find(x => x.id === id);
       if (t) { t.klaar = klaar ? 1 : 0; break; }
     }
-    // Progress + teller herberekenen
-    if (state.actiefVakId) {
-      // Bewaar open-state
-      const openState = new Set(state.openOnderdelen);
-      await laadVak(state.actiefVakId);
-      state.openOnderdelen = openState;
-      // Re-render onderdelen met open-state
-      renderOnderdelen(state.actiefVakId);
-    }
   } catch (e) {
-    // Zet checkbox terug
-    renderOnderdelen(state.actiefVakId);
+    // Mislukt: renderVak zet de checkbox terug op de oude waarde
   }
+  renderVak();
 }
 
 // =========================================================
@@ -664,21 +698,17 @@ $("#form-vak").addEventListener("submit", async (e) => {
   const naam = $("#vak-naam").value.trim();
   if (!naam) return;
   try {
+    let nieuw = null;
     if (id) {
       await api(`/vakken/${id}`, "PUT", { naam, kleur: state.geselecteerdeKleur });
     } else {
-      const nieuw = await api("/vakken", "POST", { naam, kleur: state.geselecteerdeKleur });
-      if (nieuw) {
-        state.actiefVakId = nieuw.id;
-        location.hash = `#/vak/${nieuw.id}`;
-      }
+      nieuw = await api("/vakken", "POST", { naam, kleur: state.geselecteerdeKleur });
     }
     sluitModal("modal-vak");
     toast(id ? "Vak bijgewerkt" : "Vak aangemaakt");
-    await renderOverzicht();
-    if (state.actiefVakId) {
-      if (location.hash.includes("/vak/")) await laadVak(state.actiefVakId);
-    }
+    await vernieuwSidebar();
+    if (nieuw) location.hash = `#/vak/${nieuw.id}`;
+    else route();
   } catch (e) {}
 });
 
@@ -774,19 +804,21 @@ $("#form-taak").addEventListener("submit", async (e) => {
 // --- Bevestig verwijderen ---
 let bevestigCallback = null;
 
-function bevestig(titel, tekst, cb) {
+function bevestig(titel, tekst, cb, knopTekst = "Verwijderen") {
   $("#modal-bevestig-titel").textContent = titel;
   $("#modal-bevestig-tekst").textContent = tekst;
+  $("#knop-bevestig-ja").textContent = knopTekst;
   bevestigCallback = cb;
   toonModal("modal-bevestig");
 }
 
 $("#knop-bevestig-ja").addEventListener("click", async () => {
-  if (bevestigCallback) {
-    await bevestigCallback();
-    bevestigCallback = null;
-  }
+  const cb = bevestigCallback;
+  bevestigCallback = null;
   sluitModal("modal-bevestig");
+  if (cb) {
+    try { await cb(); } catch (e) { /* fout is al getoond via toast */ }
+  }
 });
 
 function bevestigVerwijderVak(vak) {
@@ -795,9 +827,20 @@ function bevestigVerwijderVak(vak) {
     async () => {
       await api(`/vakken/${vak.id}`, "DELETE");
       toast("Vak verwijderd");
+      await vernieuwSidebar();
       location.hash = "#/";
-      await renderOverzicht();
     });
+}
+
+function bevestigAfsluiten() {
+  bevestig("App afsluiten?",
+    "De app stopt op de achtergrond. Je gegevens zijn al opgeslagen. " +
+    "Dubbelklik op het bureaubladicoon om ze later opnieuw te starten.",
+    async () => {
+      await api("/afsluiten", "POST");
+      $("#gesloten").classList.remove("verborgen");
+      window.close();
+    }, "Afsluiten");
 }
 
 function bevestigVerwijderOnderdeel(o) {
@@ -836,6 +879,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Knoppen
   $("#knop-sidebar-toggle").addEventListener("click", wisselSidebar);
   $("#knop-thema").addEventListener("click", wisselThema);
+  $("#knop-afsluiten").addEventListener("click", bevestigAfsluiten);
   $("#knop-nieuw-vak").addEventListener("click", () => openModalVak());
   $("#knop-vak-toevoegen-boven").addEventListener("click", () => openModalVak());
   $("#knop-onderdeel-toevoegen").addEventListener("click", () => openModalOnderdeel());
@@ -881,7 +925,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  // Routing
+  // Routing (vakkenlijst eerst, zodat de zijbalk ook na verversen gevuld is)
+  await vernieuwSidebar();
   window.addEventListener("hashchange", route);
   route();
 });

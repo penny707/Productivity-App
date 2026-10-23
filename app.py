@@ -1,13 +1,17 @@
 # app.py
 # Lokale productivity app server - Python standaardbibliotheek only.
-# Start met: python app.py
-# Open daarna http://127.0.0.1:8765 in je browser.
+# Start met: python app.py  (of dubbelklik op het bureaubladicoon)
+# De app opent in een eigen venster op http://127.0.0.1:8765
 
+import datetime
 import json
 import os
 import sqlite3
+import subprocess
 import sys
 import threading
+import time
+import urllib.request
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -18,10 +22,20 @@ from urllib.parse import urlparse, parse_qs
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "data.db")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
+BACKUP_DIR = os.path.join(BASE_DIR, "backups")
+BACKUPS_BEWAREN = 14
 HOST = "127.0.0.1"
 PORT = 8765
+URL = f"http://{HOST}:{PORT}/"
+APP_ID = "productivity-app"
+
+# Alleen verzoeken met deze Host-header worden aanvaard (bescherming tegen
+# DNS-rebinding: andere websites kunnen zo niet bij je gegevens).
+TOEGESTANE_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
 
 TAAK_TYPES = {"opdracht", "theorie", "labo"}
+
+SERVER = None
 
 
 # ----------------------------------------------------------------------------
@@ -88,6 +102,42 @@ def init_db():
         )
     conn.commit()
     conn.close()
+
+
+def maak_backup():
+    """
+    Maakt één backup per dag in backups/data-JJJJ-MM-DD.db (via de
+    SQLite backup-API, dus veilig terwijl de app draait).
+    Alleen de laatste BACKUPS_BEWAREN backups worden bewaard.
+    """
+    if not os.path.isfile(DB_PATH):
+        return
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    doel = os.path.join(BACKUP_DIR, f"data-{datetime.date.today().isoformat()}.db")
+    if not os.path.exists(doel):
+        bron = sqlite3.connect(DB_PATH)
+        kopie = sqlite3.connect(doel)
+        try:
+            bron.backup(kopie)
+        finally:
+            kopie.close()
+            bron.close()
+    backups = sorted(
+        f for f in os.listdir(BACKUP_DIR) if f.startswith("data-") and f.endswith(".db")
+    )
+    for oud in backups[:-BACKUPS_BEWAREN]:
+        os.remove(os.path.join(BACKUP_DIR, oud))
+
+
+def backup_lus():
+    # De server kan dagen blijven draaien: controleer elk uur of de backup
+    # van vandaag al bestaat.
+    while True:
+        time.sleep(3600)
+        try:
+            maak_backup()
+        except Exception:
+            pass
 
 
 # ----------------------------------------------------------------------------
@@ -327,12 +377,20 @@ def api_taken(handler, methode, pad_delen, body):
     conn = get_conn()
     cur = conn.cursor()
 
-    # /api/taken?onderdeel_id=..  (GET) | POST
+    # /api/taken?onderdeel_id=..|?vak_id=..  (GET) | POST
     if len(pad_delen) == 2:
         if methode == "GET":
             qs = parse_qs(urlparse(handler.path).query)
             oid = qs.get("onderdeel_id", [None])[0]
-            if oid:
+            vak_id = qs.get("vak_id", [None])[0]
+            if vak_id:
+                cur.execute(
+                    """SELECT t.* FROM taken t
+                       JOIN onderdelen o ON o.id = t.onderdeel_id
+                       WHERE o.vak_id = ? ORDER BY t.volgorde, t.id""",
+                    (int(vak_id),),
+                )
+            elif oid:
                 cur.execute(
                     "SELECT * FROM taken WHERE onderdeel_id = ? ORDER BY volgorde, id",
                     (int(oid),),
@@ -555,11 +613,31 @@ class AppHandler(BaseHTTPRequestHandler):
         pad = parsed.path
         delen = [d for d in pad.split("/") if d != ""]
 
+        if self.headers.get("Host", "") not in TOEGESTANE_HOSTS:
+            stuur_fout(self, 403, "Ongeldige host.")
+            return
+
         # API routes
         if len(delen) >= 2 and delen[0] == "api":
-            body = lees_json(self) if methode in ("POST", "PUT") else {}
+            if methode in ("POST", "PUT"):
+                # Vereist JSON: zo kan een andere website via een gewoon
+                # formulier of 'simple request' niets aanmaken of wijzigen.
+                ctype = self.headers.get("Content-Type", "")
+                if not ctype.startswith("application/json"):
+                    stuur_fout(self, 415, "Content-Type moet application/json zijn.")
+                    return
+                body = lees_json(self)
+            else:
+                body = {}
             try:
-                if delen[1] == "vakken":
+                if delen[1] == "status" and methode == "GET":
+                    stuur_json(self, {"app": APP_ID})
+                    return
+                elif delen[1] == "afsluiten" and methode == "POST":
+                    stuur_json(self, {"ok": True})
+                    threading.Thread(target=SERVER.shutdown, daemon=True).start()
+                    return
+                elif delen[1] == "vakken":
                     if api_vakken(self, methode, delen, body):
                         return
                 elif delen[1] == "onderdelen":
@@ -575,6 +653,8 @@ class AppHandler(BaseHTTPRequestHandler):
                     api_overzicht(self)
                     return
                 stuur_fout(self, 404, "API route niet gevonden.")
+            except (ValueError, TypeError):
+                stuur_fout(self, 400, "Ongeldige invoer.")
             except Exception as e:
                 stuur_fout(self, 500, f"Serverfout: {e}")
             return
@@ -640,32 +720,95 @@ class AppHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
 
+class AppServer(ThreadingHTTPServer):
+    # Op Windows laat SO_REUSEADDR een tweede server op dezelfde poort toe.
+    # Uitzetten, zodat een tweede start netjes merkt dat de poort bezet is.
+    allow_reuse_address = False
+
+
 # ----------------------------------------------------------------------------
 # Start
 # ----------------------------------------------------------------------------
-def open_browser_later():
-    webbrowser.open(f"http://{HOST}:{PORT}/")
+def meld_fout(bericht):
+    """Toont een foutmelding: in de console, of als pop-up wanneer de app
+    zonder console draait (pythonw via het bureaubladicoon)."""
+    if sys.stdout is not None:
+        print(f"[!] {bericht}")
+    else:
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(None, bericht, "Productivity App", 0x10)
+
+
+def server_draait():
+    """True als onze app al op de poort luistert (bv. tweede dubbelklik)."""
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(f"{URL}api/status", timeout=1.5) as res:
+            return json.loads(res.read().decode("utf-8")).get("app") == APP_ID
+    except Exception:
+        return False
+
+
+def zoek_edge():
+    for basis in ("ProgramFiles(x86)", "ProgramFiles", "LocalAppData"):
+        map_ = os.environ.get(basis)
+        if map_:
+            pad = os.path.join(map_, "Microsoft", "Edge", "Application", "msedge.exe")
+            if os.path.isfile(pad):
+                return pad
+    return None
+
+
+def open_app_venster():
+    # Edge in app-modus: eigen venster zonder adresbalk of tabbladen.
+    # Geen Edge gevonden? Dan gewoon de standaardbrowser.
+    edge = zoek_edge()
+    if edge:
+        try:
+            subprocess.Popen([edge, f"--app={URL}"])
+            return
+        except OSError:
+            pass
+    webbrowser.open(URL)
 
 
 def main():
-    init_db()
+    global SERVER
     if not os.path.isdir(STATIC_DIR):
-        print(f"[!] Map 'static' niet gevonden op {STATIC_DIR}")
-        print("    Maak de map aan en plaats index.html, style.css en app.js erin.")
-    server = ThreadingHTTPServer((HOST, PORT), AppHandler)
+        meld_fout(f"Map 'static' niet gevonden op {STATIC_DIR}")
+        return
+    try:
+        SERVER = AppServer((HOST, PORT), AppHandler)
+    except OSError:
+        # Poort bezet: draait de app al (bv. tweede dubbelklik)? Dan enkel
+        # een venster openen.
+        if server_draait():
+            open_app_venster()
+            return
+        meld_fout(f"Poort {PORT} is al in gebruik door een ander programma.\n"
+                  "Herstart je pc of sluit dat programma.")
+        sys.exit(1)
+
+    init_db()
+    try:
+        maak_backup()
+    except Exception as e:
+        meld_fout(f"Backup maken mislukt: {e}")
+
+    threading.Thread(target=backup_lus, daemon=True).start()
     print("=" * 60)
     print(" Productivity App draait")
-    print(f" Open: http://{HOST}:{PORT}/")
+    print(f" Open: {URL}")
     print(f" Database: {DB_PATH}")
-    print(" Sluiten: Ctrl+C in dit venster")
+    print(" Sluiten: Ctrl+C in dit venster, of 'Afsluiten' in de app")
     print("=" * 60)
-    threading.Timer(1.0, open_browser_later).start()
+    open_app_venster()
     try:
-        server.serve_forever()
+        SERVER.serve_forever()
     except KeyboardInterrupt:
-        print("\nServer gestopt.")
-        server.shutdown()
-        sys.exit(0)
+        pass
+    SERVER.server_close()
+    print("\nServer gestopt.")
 
 
 if __name__ == "__main__":

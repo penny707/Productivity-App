@@ -1,4 +1,6 @@
 @echo off
+REM Start de app MET consolevenster (handig voor foutzoeken).
+REM Voor dagelijks gebruik: het bureaubladicoon (start_app.pyw).
 setlocal
 title Productivity App
 cd /d "%~dp0"

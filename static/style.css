@@ -304,7 +304,14 @@ a:focus-visible {
   transition: opacity var(--transitie);
   white-space: nowrap;
 }
-.sidebar.ingeklapt .thema-label { opacity: 0; width: 0; }
+.sidebar.ingeklapt .thema-label { display: none; }
+
+.knop-afsluiten { margin-left: auto; }
+.knop-afsluiten:hover { color: var(--kleur-gevaar); background: var(--kleur-gevaar-zacht); }
+
+/* Ingeklapt is de zijbalk te smal voor twee knoppen naast elkaar */
+.sidebar.ingeklapt .sidebar-voet { flex-direction: column; padding: 8px 0 2px; }
+.sidebar.ingeklapt .knop-afsluiten { margin-left: 0; }
 
 /* =========================================================
    HOOFDGEBIED
@@ -946,6 +953,22 @@ html[data-thema="dark"] .taak-type.labo   { color: #86c79b; }
   transform: translateX(-50%) translateY(0);
 }
 .toast.fout { background: var(--kleur-gevaar); color: #fff; }
+
+/* =========================================================
+   APP GESLOTEN
+   ========================================================= */
+.gesloten {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+  background: var(--bg-app);
+}
+.gesloten h2 { font-size: 20px; font-weight: 650; margin-bottom: 8px; }
 
 /* =========================================================
    RESPONSIVE
