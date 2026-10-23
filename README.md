@@ -45,8 +45,10 @@ je eventuele foutmeldingen ziet.
 
 ## Gebruik
 
-- **Overzicht:** blokken per vak met voortgangsbalk en percentage.
-  Klik op een blok om het vak te openen.
+- **Overzicht:** begroeting met de datum, vier kerncijfers (open taken,
+  te laat, deadlines deze week, afgerond) en een kaart per vak met
+  voortgang en de eerstvolgende deadline. Klik op een kaart om het vak te
+  openen, of op "Te laat" / "Deadlines deze week" voor de deadlines.
 - **Volgorde van vakken:** sleep een vak in de zijbalk naar boven of
   beneden. Met het toetsenbord: selecteer een vak (Tab) en druk
   Alt + pijltje omhoog/omlaag. Het overzicht volgt dezelfde volgorde.
@@ -57,9 +59,10 @@ je eventuele foutmeldingen ziet.
 - **Deadline** = moet echt af zijn. **Streefmoment** = je persoonlijke doel.
   Beide zijn optioneel en staan los van elkaar.
 - **Deadlines-pagina:** twee tabs, een voor harde deadlines en een voor
-  streefmomenten.
-- **Thema:** knop onderaan in de zijbalk wisselt tussen Grey / Light / Dark.
-- **Zijbalk:** de knop linksboven klapt de navigatie in en uit.
+  streefmomenten, telkens gegroepeerd in Te laat / Vandaag /
+  Komende 7 dagen / Later.
+- **Thema:** kies onderaan in de zijbalk tussen Licht, Grijs en Donker.
+- **Zijbalk:** de knop rechtsboven klapt de navigatie in en uit.
 
 ## Mapstructuur
 

@@ -98,10 +98,36 @@ const ICOON = {
   sluiten: "M18 6L6 18M6 6l12 12",
   klok: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2",
   sub: "M3 6h18M3 12h12M3 18h6",
-  taak: "M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
+  taak: "M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11",
+  vlag: "M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7",
+  doel: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7a5 5 0 1 0 0 10a5 5 0 1 0 0-10zM12 11a1 1 0 1 0 0 2a1 1 0 1 0 0-2z",
+  lijst: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
+  alarm: "M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01",
+  kalender: "M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 10h18M8 2v4M16 2v4",
+  vinkCirkel: "M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3"
 };
 
 const TYPES = ["opdracht", "theorie", "labo"];
+const TYPE_LABELS = { opdracht: "Opdracht", theorie: "Theorie", labo: "Labo" };
+
+function percentage(klaar, totaal) {
+  return totaal === 0 ? 0 : Math.round((klaar / totaal) * 100);
+}
+
+// Voortgangsbalk; het spoor is een lichtere tint van dezelfde kleur (zie CSS)
+function maakMeter(pct, kleur) {
+  return el("div", {
+    class: "meter",
+    style: kleur ? `--vak:${kleur}` : null,
+    role: "progressbar",
+    "aria-valuenow": pct, "aria-valuemin": 0, "aria-valuemax": 100
+  }, el("div", { style: `width:${pct}%` }));
+}
+
+function maakVakChip(vak, groot = false) {
+  const letter = (vak.naam || "?").trim().charAt(0).toUpperCase();
+  return el("span", { class: "vak-chip" + (groot ? " groot" : ""), style: `--vak:${vak.kleur}` }, letter);
+}
 
 // ---------- Toast ----------
 let toastTimer = null;
@@ -138,15 +164,27 @@ function datumStatus(iso) {
   return "";
 }
 
-function datumVerschilLabel(iso) {
-  if (!iso) return "";
+function dagenTot(iso) {
   const d = new Date(iso + "T00:00:00");
   const v = new Date(vandaagISO() + "T00:00:00");
-  const dagen = Math.round((d - v) / 86400000);
+  return Math.round((d - v) / 86400000);
+}
+
+function datumVerschilLabel(iso) {
+  if (!iso) return "";
+  const dagen = dagenTot(iso);
   if (dagen < 0) return `${Math.abs(dagen)}d te laat`;
   if (dagen === 0) return "vandaag";
   if (dagen === 1) return "morgen";
   return `over ${dagen}d`;
+}
+
+function groet() {
+  const uur = new Date().getHours();
+  if (uur < 6) return "Goedenacht";
+  if (uur < 12) return "Goedemorgen";
+  if (uur < 18) return "Goedemiddag";
+  return "Goedenavond";
 }
 
 // =========================================================
@@ -155,16 +193,14 @@ function datumVerschilLabel(iso) {
 function pasThemaToe(thema) {
   state.thema = thema;
   document.documentElement.dataset.thema = thema;
-  const labels = { grey: "Grey", light: "Light", dark: "Dark" };
-  $("#thema-label").textContent = labels[thema] || thema;
+  $$("[data-thema-keuze]").forEach(k => {
+    k.setAttribute("aria-pressed", String(k.dataset.themaKeuze === thema));
+  });
 }
 
-function wisselThema() {
-  const volgorde = ["grey", "light", "dark"];
-  const idx = volgorde.indexOf(state.thema);
-  const nieuw = volgorde[(idx + 1) % volgorde.length];
-  pasThemaToe(nieuw);
-  api("/instellingen", "PUT", { thema: nieuw }).catch(() => {});
+function kiesThema(thema) {
+  pasThemaToe(thema);
+  api("/instellingen", "PUT", { thema }).catch(() => {});
 }
 
 function pasSidebarToe(ingeklapt) {
@@ -347,54 +383,151 @@ async function renderOverzicht() {
     state.vakken = data.vakken;
     renderSidebarVakken();
 
+    // Kerncijfers over alle vakken heen
+    let klaar = 0, totaal = 0;
+    for (const v of data.vakken) {
+      klaar += v.progress.klaar;
+      totaal += v.progress.totaal;
+    }
+    const openDeadlines = data.deadlines.filter(t => !t.klaar);
+    const teLaat = openDeadlines.filter(t => dagenTot(t.deadline) < 0);
+    const dezeWeek = openDeadlines.filter(t => { const d = dagenTot(t.deadline); return d >= 0 && d <= 7; });
+    const vandaag = dezeWeek.filter(t => dagenTot(t.deadline) === 0);
+
+    const datum = new Date().toLocaleDateString("nl-BE", { weekday: "long", day: "numeric", month: "long" });
+    $("#overzicht-datum").textContent = datum.charAt(0).toUpperCase() + datum.slice(1);
+    $("#overzicht-groet").textContent = groet();
+    $("#overzicht-sub").textContent =
+      data.vakken.length === 0 ? "Maak je eerste vak aan om te beginnen." :
+      totaal === 0 ? "Voeg taken toe aan je vakken om je voortgang te volgen." :
+      klaar === totaal ? "Alle taken zijn afgerond. Goed bezig!" :
+      `Je hebt ${totaal - klaar} open ${totaal - klaar === 1 ? "taak" : "taken"}` +
+        (dezeWeek.length ? `, ${dezeWeek.length} met een deadline deze week.` : ".");
+
+    renderKpis({ klaar, totaal, teLaat, dezeWeek, vandaag });
+
     const grid = $("#vakken-grid");
     grid.innerHTML = "";
 
     if (data.vakken.length === 0) {
       $("#overzicht-leeg").classList.remove("verborgen");
+      $("#kpi-rij").classList.add("verborgen");
       return;
     }
     $("#overzicht-leeg").classList.add("verborgen");
+    $("#kpi-rij").classList.remove("verborgen");
 
     for (const v of data.vakken) {
-      const p = v.progress;
-      const pct = p.totaal === 0 ? 0 : Math.round((p.klaar / p.totaal) * 100);
-
-      const tellers = [];
-      const typeLabels = { opdracht: "Opdracht", theorie: "Theorie", labo: "Labo" };
-      for (const [type, label] of Object.entries(typeLabels)) {
-        const [klaar, totaal] = p.per_type[type] || [0, 0];
-        if (totaal > 0) {
-          tellers.push(el("span", { class: "vak-kaart-teller" }, [
-            label + ": ",
-            el("strong", {}, `${klaar}/${totaal}`)
-          ]));
-        }
-      }
-
-      const kaart = el("div", {
-        class: "vak-kaart",
-        onclick: () => { location.hash = `#/vak/${v.id}`; }
-      }, [
-        el("div", { class: "vak-kaart-kleur", style: `background:${v.kleur}` }),
-        el("div", { class: "vak-kaart-kop" }, [
-          el("span", { class: "vak-stip", style: `background:${v.kleur}` }),
-          el("span", { class: "vak-kaart-naam" }, v.naam)
-        ]),
-        el("div", { class: "vak-kaart-progress-label" }, [
-          el("span", {}, p.totaal === 0 ? "Nog geen taken" : `${p.klaar} van ${p.totaal} taken`),
-          el("span", {}, `${pct}%`)
-        ]),
-        el("div", { class: "progress-balk" }, [
-          el("div", { style: `width:${pct}%; background:${v.kleur}` })
-        ]),
-        tellers.length ? el("div", { class: "vak-kaart-tellers" }, tellers) : null
-      ]);
-      grid.appendChild(kaart);
+      const volgende = openDeadlines.find(t => t.vak_id === v.id);
+      grid.appendChild(maakVakKaart(v, volgende));
     }
   } catch (e) {
     console.error(e);
   }
+}
+
+function maakKpi({ label, icoon, waarde, meta, status = "", naar = null, extra = null }) {
+  return el(naar ? "button" : "div", {
+    class: "kpi-tegel" + (status ? ` status-${status}` : ""),
+    type: naar ? "button" : null,
+    onclick: naar ? () => { location.hash = naar; } : null
+  }, [
+    el("div", { class: "kpi-label" }, [svgIcoon(icoon, 15, 2), label]),
+    el("div", { class: "kpi-waarde" }, waarde),
+    el("div", { class: "kpi-meta" }, meta),
+    extra
+  ]);
+}
+
+function renderKpis({ klaar, totaal, teLaat, dezeWeek, vandaag }) {
+  const rij = $("#kpi-rij");
+  rij.innerHTML = "";
+  const pct = percentage(klaar, totaal);
+  rij.append(
+    maakKpi({
+      label: "Open taken", icoon: ICOON.lijst,
+      waarde: String(totaal - klaar),
+      meta: `van ${totaal} in totaal`
+    }),
+    maakKpi({
+      label: "Te laat", icoon: ICOON.alarm,
+      waarde: String(teLaat.length),
+      meta: teLaat.length ? "harde deadlines verstreken" : "niets te laat",
+      status: teLaat.length ? "kritiek" : "",
+      naar: "#/deadlines"
+    }),
+    maakKpi({
+      label: "Deadlines deze week", icoon: ICOON.kalender,
+      waarde: String(dezeWeek.length),
+      meta: vandaag.length ? `waarvan ${vandaag.length} vandaag` : "komende 7 dagen",
+      status: vandaag.length ? "waarschuwing" : "",
+      naar: "#/deadlines"
+    }),
+    maakKpi({
+      label: "Afgerond", icoon: ICOON.vinkCirkel,
+      waarde: `${pct}%`,
+      meta: `${klaar} van ${totaal} taken`,
+      extra: maakMeter(pct)
+    })
+  );
+}
+
+function maakVakKaart(v, volgende) {
+  const p = v.progress;
+  const pct = percentage(p.klaar, p.totaal);
+
+  const tellers = [];
+  for (const type of TYPES) {
+    const [k, t] = p.per_type[type] || [0, 0];
+    if (t > 0) {
+      tellers.push(el("span", { class: "vak-kaart-teller" }, [
+        TYPE_LABELS[type] + " ",
+        el("strong", {}, `${k}/${t}`)
+      ]));
+    }
+  }
+
+  let volgendeRij;
+  if (volgende) {
+    const status = datumStatus(volgende.deadline);
+    volgendeRij = el("div", {
+      class: "vak-kaart-volgende " + status,
+      title: `Eerstvolgende deadline: ${formatteerDatum(volgende.deadline)}`
+    }, [
+      svgIcoon(ICOON.vlag, 14, 2),
+      el("span", { class: "tekst" }, volgende.titel),
+      el("span", { class: "wanneer" }, datumVerschilLabel(volgende.deadline))
+    ]);
+  } else {
+    volgendeRij = el("div", { class: "vak-kaart-volgende leeg" }, [
+      svgIcoon(ICOON.vlag, 14, 2),
+      el("span", { class: "tekst" }, "Geen open deadlines")
+    ]);
+  }
+
+  const openen = () => { location.hash = `#/vak/${v.id}`; };
+  return el("div", {
+    class: "vak-kaart",
+    style: `--vak:${v.kleur}`,
+    tabindex: "0",
+    role: "link",
+    "aria-label": `${v.naam}, ${pct}% afgerond`,
+    onclick: openen,
+    onkeydown: (e) => { if (e.key === "Enter") openen(); }
+  }, [
+    el("div", { class: "vak-kaart-kop" }, [
+      maakVakChip(v),
+      el("div", { class: "vak-kaart-titels" }, [
+        el("div", { class: "vak-kaart-naam" }, v.naam),
+        el("div", { class: "vak-kaart-sub" },
+          p.totaal === 0 ? "Nog geen taken" : `${p.klaar} van ${p.totaal} taken`)
+      ]),
+      el("span", { class: "vak-kaart-pct" }, `${pct}%`)
+    ]),
+    maakMeter(pct, v.kleur),
+    tellers.length ? el("div", { class: "vak-kaart-tellers" }, tellers) : null,
+    volgendeRij
+  ]);
 }
 
 // =========================================================
@@ -443,33 +576,34 @@ function renderVak() {
       }
     }
   }
-  const pct = totaal === 0 ? 0 : Math.round((klaar / totaal) * 100);
+  const pct = percentage(klaar, totaal);
 
   $("#vak-titel").textContent = vak.naam;
   $("#vak-sub").textContent = totaal === 0
     ? "Nog geen taken in dit vak."
-    : `${klaar} van ${totaal} taken afgerond.`;
+    : `${klaar} van ${totaal} taken afgerond`;
+  $("#vak-chip").replaceWith(Object.assign(maakVakChip(vak, true), { id: "vak-chip" }));
 
-  const typesHtml = [];
   const typeLabels = { opdracht: "Opdrachten", theorie: "Theorie", labo: "Labo" };
-  for (const [type, label] of Object.entries(typeLabels)) {
+  const typesHtml = TYPES.map(type => {
     const [k, t] = per_type[type];
-    typesHtml.push(el("div", { class: "vak-progress-type" }, [
+    return el("div", { class: `vak-progress-type type-${type}` }, [
+      el("div", { class: "type-kop" }, [el("span", { class: "type-stip" }), typeLabels[type]]),
       el("strong", {}, `${k}/${t}`),
-      el("span", {}, label)
-    ]));
-  }
+      maakMeter(percentage(k, t), "var(--type-kleur)")
+    ]);
+  });
 
   const pDiv = $("#vak-progress");
   pDiv.innerHTML = "";
-  pDiv.appendChild(el("div", { class: "vak-progress-rij" }, [
-    el("span", { class: "vak-progress-label" }, "Voortgang"),
-    el("span", { class: "vak-progress-pct" }, `${pct}%`)
-  ]));
-  pDiv.appendChild(el("div", { class: "progress-balk" }, [
-    el("div", { style: `width:${pct}%; background:${vak.kleur}` })
-  ]));
-  pDiv.appendChild(el("div", { class: "vak-progress-types" }, typesHtml));
+  pDiv.append(
+    el("div", { class: "vak-progress-hoofd" }, [
+      el("div", { class: "vak-progress-label" }, "Voortgang"),
+      el("div", { class: "vak-progress-pct" }, `${pct}%`),
+      maakMeter(pct, vak.kleur)
+    ]),
+    el("div", { class: "vak-progress-types" }, typesHtml)
+  );
 
   renderOnderdelen(vak.id);
 }
@@ -536,18 +670,20 @@ function maakOnderdeelElement(o, isSub) {
   }, [
     el("span", { class: "onderdeel-pijl" }, svgIcoon(ICOON.pijl, 14, 2.2)),
     el("span", { class: "onderdeel-titel" }, o.titel),
-    totaal > 0 ? el("span", { class: "onderdeel-teller" }, `${klaar}/${totaal}`) : null,
+    totaal > 0 ? el("span", {
+      class: "onderdeel-teller" + (klaar === totaal ? " compleet" : "")
+    }, `${klaar}/${totaal}`) : null,
     el("div", { class: "onderdeel-acties" }, [
       el("button", {
-        class: "icoon-knop", title: "Sub-onderdeel toevoegen",
+        class: "icoon-knop klein", title: "Sub-onderdeel toevoegen",
         onclick: (ev) => { ev.stopPropagation(); openModalOnderdeel(null, o.id); }
       }, svgIcoon(ICOON.plus, 14, 2.2)),
       el("button", {
-        class: "icoon-knop", title: "Naam wijzigen",
+        class: "icoon-knop klein", title: "Naam wijzigen",
         onclick: (ev) => { ev.stopPropagation(); openModalOnderdeel(o); }
       }, svgIcoon(ICOON.potlood, 14, 2)),
       el("button", {
-        class: "icoon-knop", title: "Verwijderen",
+        class: "icoon-knop klein", title: "Verwijderen",
         onclick: (ev) => { ev.stopPropagation(); bevestigVerwijderOnderdeel(o); }
       }, svgIcoon(ICOON.prullenbak, 14, 2))
     ])
@@ -605,18 +741,18 @@ function maakTaakElement(t) {
   if (t.deadline) {
     datumDelen.push(el("span", {
       class: `taak-datum deadline ${deadlineStatus}`,
-      title: "Harde deadline"
+      title: `Harde deadline (${datumVerschilLabel(t.deadline)})`
     }, [
-      svgIcoon(ICOON.klok, 12, 2),
+      svgIcoon(ICOON.vlag, 12, 2.2),
       formatteerDatum(t.deadline)
     ]));
   }
   if (t.streefdatum) {
     datumDelen.push(el("span", {
       class: `taak-datum streef ${streefStatus}`,
-      title: "Persoonlijk streefmoment"
+      title: `Persoonlijk streefmoment (${datumVerschilLabel(t.streefdatum)})`
     }, [
-      svgIcoon(ICOON.klok, 12, 2),
+      svgIcoon(ICOON.doel, 12, 2.2),
       formatteerDatum(t.streefdatum)
     ]));
   }
@@ -631,16 +767,15 @@ function maakTaakElement(t) {
   }, [
     checkbox,
     el("span", { class: "taak-titel" }, t.titel),
-    el("span", { class: `taak-type ${t.type}` },
-      t.type === "opdracht" ? "Opdracht" : t.type === "theorie" ? "Theorie" : "Labo"),
+    el("span", { class: `taak-type ${t.type}` }, TYPE_LABELS[t.type] || t.type),
     ...datumDelen,
     el("div", { class: "taak-acties" }, [
       el("button", {
-        class: "icoon-knop", title: "Bewerken",
+        class: "icoon-knop klein", title: "Bewerken",
         onclick: () => openModalTaak(t)
       }, svgIcoon(ICOON.potlood, 13, 2)),
       el("button", {
-        class: "icoon-knop", title: "Verwijderen",
+        class: "icoon-knop klein", title: "Verwijderen",
         onclick: () => bevestigVerwijderTaak(t)
       }, svgIcoon(ICOON.prullenbak, 13, 2))
     ])
@@ -680,9 +815,7 @@ async function renderDeadlines() {
       $("#deadlines-leeg").classList.remove("verborgen");
     } else {
       $("#deadlines-leeg").classList.add("verborgen");
-      for (const t of deadlines) {
-        dl.appendChild(maakDeadlineItem(t, "deadline"));
-      }
+      renderGroepen(dl, deadlines, "deadline");
     }
 
     // Streefmomenten
@@ -696,38 +829,69 @@ async function renderDeadlines() {
       $("#streef-leeg").classList.remove("verborgen");
     } else {
       $("#streef-leeg").classList.add("verborgen");
-      for (const t of streef) {
-        sl.appendChild(maakDeadlineItem(t, "streef"));
-      }
+      renderGroepen(sl, streef, "streef");
     }
   } catch (e) {
     console.error(e);
   }
 }
 
+// Verdeelt (gesorteerde) taken in tijdsgroepen: te laat, vandaag, deze week, later.
+function renderGroepen(container, taken, soort) {
+  const groepen = [
+    { sleutel: "verlopen", titel: "Te laat", icoon: ICOON.alarm, taken: [] },
+    { sleutel: "vandaag", titel: "Vandaag", icoon: ICOON.klok, taken: [] },
+    { sleutel: "week", titel: "Komende 7 dagen", icoon: null, taken: [] },
+    { sleutel: "later", titel: "Later", icoon: null, taken: [] }
+  ];
+  for (const t of taken) {
+    const dagen = dagenTot(soort === "deadline" ? t.deadline : t.streefdatum);
+    const idx = dagen < 0 ? 0 : dagen === 0 ? 1 : dagen <= 7 ? 2 : 3;
+    groepen[idx].taken.push(t);
+  }
+  for (const g of groepen) {
+    if (g.taken.length === 0) continue;
+    container.appendChild(el("section", { class: `deadline-groep ${g.sleutel}` }, [
+      el("h3", { class: "deadline-groep-kop" }, [
+        g.icoon ? svgIcoon(g.icoon, 14, 2.2) : null,
+        g.titel,
+        el("span", { class: "aantal" }, String(g.taken.length))
+      ]),
+      ...g.taken.map(t => maakDeadlineItem(t, soort))
+    ]));
+  }
+}
+
 function maakDeadlineItem(t, soort) {
   const datum = soort === "deadline" ? t.deadline : t.streefdatum;
   const status = datumStatus(datum);
+  const d = new Date(datum + "T00:00:00");
 
   return el("div", {
     class: `deadline-item ${status}`,
-    onclick: () => { location.hash = `#/vak/${t.vak_id}`; }
+    tabindex: "0",
+    role: "link",
+    onclick: () => { location.hash = `#/vak/${t.vak_id}`; },
+    onkeydown: (e) => { if (e.key === "Enter") location.hash = `#/vak/${t.vak_id}`; }
   }, [
-    el("div", { class: "deadline-kleur", style: `background:${t.vak_kleur}` }),
+    el("div", { class: "datum-tegel", title: d.toLocaleDateString("nl-BE", { weekday: "long", day: "numeric", month: "long" }) }, [
+      el("span", { class: "dag" }, String(d.getDate())),
+      el("span", { class: "maand" }, d.toLocaleDateString("nl-BE", { month: "short" }).replace(".", ""))
+    ]),
     el("div", { class: "deadline-info" }, [
       el("div", { class: "deadline-titel" }, t.titel),
       el("div", { class: "deadline-meta" }, [
+        el("span", { class: "vak-stip", style: `background:${t.vak_kleur}` }),
         el("span", {}, t.vak_naam),
         el("span", { class: "scheiding" }, "·"),
         el("span", {}, t.onderdeel_titel),
         el("span", { class: "scheiding" }, "·"),
-        el("span", {}, t.type.charAt(0).toUpperCase() + t.type.slice(1))
+        el("span", {}, TYPE_LABELS[t.type] || t.type)
       ])
     ]),
-    el("div", { class: "deadline-datum " + status }, [
-      formatteerDatum(datum),
-      el("span", { class: "klein", style: "display:block;font-weight:500;opacity:0.8" },
-        datumVerschilLabel(datum))
+    el("span", { class: "relatief " + status }, [
+      status === "verlopen" ? svgIcoon(ICOON.alarm, 12, 2.2) : null,
+      datumVerschilLabel(datum)
     ])
   ]);
 }
@@ -961,7 +1125,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Knoppen
   $("#knop-sidebar-toggle").addEventListener("click", wisselSidebar);
-  $("#knop-thema").addEventListener("click", wisselThema);
+  $$("[data-thema-keuze]").forEach(k => {
+    k.addEventListener("click", () => kiesThema(k.dataset.themaKeuze));
+  });
   $("#knop-afsluiten").addEventListener("click", bevestigAfsluiten);
   $("#knop-nieuw-vak").addEventListener("click", () => openModalVak());
   $("#knop-vak-toevoegen-boven").addEventListener("click", () => openModalVak());
