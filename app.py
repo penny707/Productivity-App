@@ -466,6 +466,30 @@ def api_taken(handler, methode, pad_delen, body):
             conn.close()
             return True
 
+    # /api/taken/volgorde  (PUT {"onderdeel_id": 5, "ids": [12, 9, 10]})
+    # Nieuwe volgorde van de taken binnen één onderdeel; taken van een ander
+    # onderdeel worden niet aangeraakt.
+    if len(pad_delen) == 3 and pad_delen[2] == "volgorde" and methode == "PUT":
+        ids = body.get("ids")
+        if not isinstance(ids, list):
+            stuur_fout(handler, 400, "ids moet een lijst zijn.")
+            conn.close()
+            return True
+        onderdeel_id = int(body.get("onderdeel_id"))
+        for volgorde, taak_id in enumerate(ids):
+            cur.execute(
+                "UPDATE taken SET volgorde = ? WHERE id = ? AND onderdeel_id = ?",
+                (volgorde, int(taak_id), onderdeel_id),
+            )
+        conn.commit()
+        cur.execute(
+            "SELECT * FROM taken WHERE onderdeel_id = ? ORDER BY volgorde, id",
+            (onderdeel_id,),
+        )
+        stuur_json(handler, [row_to_dict(r) for r in cur.fetchall()])
+        conn.close()
+        return True
+
     # /api/taken/<id>
     if len(pad_delen) == 3:
         try:

@@ -844,6 +844,36 @@ html[data-thema="dark"] .type-labo { --type-kleur: #4cc38a; }
 }
 .taak:hover { background: var(--bg-hover); }
 
+/* Taken slepen binnen een onderdeel: greepje links, lijn toont waar de taak terechtkomt */
+.taak { position: relative; }
+.taak-grip {
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: var(--tekst-flauw);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity var(--transitie);
+}
+.taak:hover .taak-grip,
+.taak:focus-within .taak-grip { opacity: 1; }
+.taak.slepen { opacity: 0.4; }
+.taak.drop-boven::before,
+.taak.drop-onder::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.taak.drop-boven::before { top: -1px; }
+.taak.drop-onder::after { bottom: -1px; }
+
 /* Rond vinkje */
 .taak input[type="checkbox"] {
   appearance: none;

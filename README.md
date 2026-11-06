@@ -28,7 +28,7 @@ native app, with a desktop/Start menu shortcut and no console window.
   (when you want it done), kept deliberately separate.
 - **Deadlines view.** Grouped into Overdue, Today, Next 7 days and Later, for deadlines
   and target dates alike.
-- **Drag and drop.** Reorder courses in the sidebar and colours in Settings, by mouse or
+- **Drag and drop.** Reorder courses in the sidebar, tasks within a section, and colours in Settings, by mouse or
   by keyboard (Alt + arrow keys).
 - **Customisable colour palette.** Add colours with a colour picker or a HEX code,
   remove or reorder them. Text on a light course colour automatically switches to dark

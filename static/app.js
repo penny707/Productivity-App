@@ -108,7 +108,8 @@ const ICOON = {
   lijst: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
   alarm: "M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01",
   kalender: "M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 10h18M8 2v4M16 2v4",
-  vinkCirkel: "M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3"
+  vinkCirkel: "M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3",
+  grip: "M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01"
 };
 
 const TYPES = ["opdracht", "theorie", "labo"];
@@ -821,8 +822,17 @@ function maakTaakElement(t) {
 
   const wrapper = el("div", {
     class: "taak" + (t.klaar ? " klaar" : ""),
-    dataset: { taakId: t.id }
+    dataset: { taakId: t.id },
+    draggable: "true",
+    ondragstart: (e) => startTaakSlepen(e, t, wrapper),
+    ondragover: (e) => overTaakSlepen(e, t, wrapper),
+    ondragleave: () => wrapper.classList.remove("drop-boven", "drop-onder"),
+    ondrop: (e) => dropTaak(e, t, wrapper),
+    ondragend: stopTaakSlepen,
+    onkeydown: (e) => verplaatsTaakMetToetsen(e, t)
   }, [
+    el("span", { class: "taak-grip", title: "Sleep om de volgorde te wijzigen (of Alt + ↑/↓)", "aria-hidden": "true" },
+      svgIcoon(ICOON.grip, 14, 3)),
     checkbox,
     el("span", { class: "taak-titel" }, t.titel),
     el("span", { class: `taak-type ${t.type}` }, TYPE_LABELS[t.type] || t.type),
@@ -839,6 +849,86 @@ function maakTaakElement(t) {
     ])
   ]);
   return wrapper;
+}
+
+// ---------- Taken herordenen binnen een onderdeel (slepen of Alt+pijltjes) ----------
+let sleepTaak = null;   // { id, onderdeelId } van de taak die gesleept wordt
+
+function startTaakSlepen(e, t, rij) {
+  sleepTaak = { id: t.id, onderdeelId: t.onderdeel_id };
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", String(t.id));
+  rij.classList.add("slepen");
+  e.stopPropagation();
+}
+
+// Alleen neerzetten binnen hetzelfde onderdeel; elders toont de cursor "niet toegestaan"
+function magTaakNeerzetten(t) {
+  return sleepTaak !== null && sleepTaak.onderdeelId === t.onderdeel_id;
+}
+
+function overTaakSlepen(e, t, rij) {
+  if (!magTaakNeerzetten(t)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  e.dataTransfer.dropEffect = "move";
+  const pos = dropPositie(e, rij);
+  rij.classList.toggle("drop-boven", pos === "boven");
+  rij.classList.toggle("drop-onder", pos === "onder");
+}
+
+function dropTaak(e, t, rij) {
+  if (!magTaakNeerzetten(t)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const id = sleepTaak.id;
+  const pos = dropPositie(e, rij);
+  stopTaakSlepen();
+  if (id === t.id) return;
+  const ids = (state.taken[t.onderdeel_id] || []).map(x => x.id).filter(x => x !== id);
+  let idx = ids.indexOf(t.id);
+  if (pos === "onder") idx++;
+  ids.splice(idx, 0, id);
+  bewaarTaakVolgorde(t.onderdeel_id, ids);
+}
+
+function stopTaakSlepen() {
+  sleepTaak = null;
+  $$(".taak").forEach(n => n.classList.remove("slepen", "drop-boven", "drop-onder"));
+}
+
+function verplaatsTaakMetToetsen(e, t) {
+  if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+  e.preventDefault();
+  const ids = (state.taken[t.onderdeel_id] || []).map(x => x.id);
+  const i = ids.indexOf(t.id);
+  const j = e.key === "ArrowUp" ? i - 1 : i + 1;
+  if (j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  bewaarTaakVolgorde(t.onderdeel_id, ids, t.id);
+}
+
+async function bewaarTaakVolgorde(onderdeelId, ids, focusId = null) {
+  // Meteen tonen, daarna opslaan; bij een fout de oude volgorde terugzetten
+  const oud = state.taken[onderdeelId] || [];
+  const perId = new Map(oud.map(t => [t.id, t]));
+  state.taken[onderdeelId] = ids.map(id => perId.get(id));
+  renderVak();
+  focusTaak(focusId);
+  try {
+    await api("/taken/volgorde", "PUT", { onderdeel_id: onderdeelId, ids });
+  } catch (e) {
+    state.taken[onderdeelId] = oud;
+    renderVak();
+    focusTaak(focusId);
+  }
+}
+
+// Na hertekenen de focus terugzetten (zodat Alt+pijltjes meerdere keren werkt)
+function focusTaak(id) {
+  if (id === null) return;
+  const vinkje = document.querySelector(`.taak[data-taak-id="${id}"] input[type="checkbox"]`);
+  if (vinkje) vinkje.focus();
 }
 
 async function toggleTaakKlaar(id, klaar) {
