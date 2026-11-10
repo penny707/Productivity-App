@@ -141,7 +141,7 @@ jobs:
           files: uitvoer/*
           generate_release_notes: true
           body: |
-            **Windows:** download `Elio-Setup.exe` and run it. SmartScreen may say it "prevented an unrecognized app from starting": click the **More info** link in the message, then **Run anyway**. (Or right-click the file → Properties → tick **Unblock** → OK.)
+            **Windows:** download `Elio-Setup.exe`. If your browser says the file "isn't commonly downloaded": in Edge click **⋯** → **Keep** → **Show more** → **Keep anyway** (in Chrome: **Keep**). When you open it, SmartScreen may say it "prevented an unrecognized app from starting": click the **More info** link, then **Run anyway**.
             Prefer not to install? Use the portable zip.
 
             **macOS (Apple Silicon):** open `Elio-macOS.dmg` and drag Elio to Applications. The first time, macOS may block it: open *System Settings → Privacy & Security* and click *Open Anyway*.

@@ -60,9 +60,15 @@
 
 ### Windows 10 and 11
 
-1. **[Download Elio-Setup.exe](https://github.com/penny707/Productivity-App/releases/latest/download/Elio-Setup.exe)** and open it.
-2. Windows may say *"SmartScreen prevented an unrecognized app from starting"*. That's
-   because Elio is new. Click **More info**, then **Run anyway**.
+1. **[Download Elio-Setup.exe](https://github.com/penny707/Productivity-App/releases/latest/download/Elio-Setup.exe)**.
+   Your browser may warn that the file *"isn't commonly downloaded"*. In Edge, click
+   **⋯** next to the download → **Keep** → **Show more** → **Keep anyway**. In Chrome,
+   click **Keep**.
+2. Open the file. Windows may say *"SmartScreen prevented an unrecognized app from
+   starting"*. Click **More info**, then **Run anyway**.
+
+   Both warnings appear because Elio is new and not yet widely downloaded. They're not
+   about anything in the app.
 3. Open **Elio** from the Start menu.
 
    > **Tip:** right-click Elio in the Start menu and choose *Pin to taskbar*.
