@@ -15,8 +15,6 @@ Elio runs entirely on your own PC. Your data lives in a single SQLite file next 
 the app, and nothing is sent to the internet. It opens in its own window like a
 native app, with a desktop/Start menu shortcut and no console window.
 
-> The interface is currently in Dutch. An English/Dutch language switch is planned.
-
 ## Features
 
 - **Dashboard.** A greeting with today's date, four key figures (open tasks, overdue,
@@ -34,6 +32,8 @@ native app, with a desktop/Start menu shortcut and no console window.
   remove or reorder them. Text on a light course colour automatically switches to dark
   for readability.
 - **Three themes.** Light, Grey and Dark.
+- **English and Dutch.** English by default; switch in Settings. Dates and the
+  server's messages follow the chosen language.
 - **Automatic daily backups.** Kept in `backups/` (the last 14 are retained).
 - **Feels like a real app.**
   - It opens in its own window (Microsoft Edge app mode).
@@ -115,12 +115,13 @@ static/
   index.html             app shell
   style.css              design system and themes
   app.js                 views, state and API calls
+  i18n.js                all interface text in English and Dutch
   icon.svg/.png/.ico     app icon
 ```
 
 ## Roadmap
 
-- [ ] English / Dutch language switch (English as default)
+- [x] English / Dutch language switch (English as default)
 - [ ] "Today" view: overdue, due today and tasks pinned for today
 - [ ] Semesters and an archive for finished courses
 - [ ] Task notes

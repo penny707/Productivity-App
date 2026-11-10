@@ -138,6 +138,9 @@ button { font-family: inherit; font-size: inherit; color: inherit; }
 input, select, textarea { font-family: inherit; font-size: inherit; }
 
 .verborgen { display: none !important; }
+
+/* Tot de taal geladen en toegepast is: niets tonen (voorkomt even de verkeerde taal) */
+html.laden body { visibility: hidden; }
 .klein { font-size: 12.5px; color: var(--tekst-zacht); }
 
 button:focus-visible,
@@ -1420,6 +1423,34 @@ html[data-thema="dark"] .veld select { color-scheme: dark; }
 .hex-invoer.ongeldig { border-color: var(--gevaar); }
 .kleur-toevoegen .knop { height: 40px; }
 .veld-fout { font-size: 12.5px; color: var(--gevaar); min-height: 18px; margin-top: 6px; }
+
+/* Gesegmenteerde keuze (bv. taal) */
+.segment {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 11px;
+  background: var(--bg-hover);
+  flex-shrink: 0;
+}
+.segment-optie {
+  height: 32px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--tekst-zacht);
+  font-weight: 550;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: color var(--transitie), background var(--transitie), box-shadow var(--transitie);
+}
+.segment-optie:hover { color: var(--tekst); }
+.segment-optie[aria-pressed="true"] {
+  background: var(--bg-paneel);
+  color: var(--tekst);
+  box-shadow: var(--schaduw-1);
+}
 
 .thema-tegels {
   display: grid;

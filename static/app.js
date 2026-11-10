@@ -42,7 +42,7 @@ async function api(pad, methode = "GET", body = null) {
     try {
       res = await fetch(`/api${pad}`, opties);
     } catch (netwerkFout) {
-      throw new Error("Geen verbinding met de app. Start ze opnieuw via het bureaubladicoon.");
+      throw new Error(vertaal("error.noConnection"));
     }
     if (!res.ok) {
       const fout = await res.json().catch(() => ({}));
@@ -51,7 +51,7 @@ async function api(pad, methode = "GET", body = null) {
     if (res.status === 204) return null;
     return await res.json();
   } catch (e) {
-    toast(e.message || "Er ging iets mis", "fout");
+    toast(e.message || vertaal("error.generic"), "fout");
     throw e;
   }
 }
@@ -113,7 +113,9 @@ const ICOON = {
 };
 
 const TYPES = ["opdracht", "theorie", "labo"];
-const TYPE_LABELS = { opdracht: "Opdracht", theorie: "Theorie", labo: "Labo" };
+function typeLabel(type) {
+  return vertaal(`type.${type}`);
+}
 
 function percentage(klaar, totaal) {
   return totaal === 0 ? 0 : Math.round((klaar / totaal) * 100);
@@ -208,7 +210,7 @@ function formatteerDatum(iso) {
   if (!iso) return "";
   const d = new Date(iso + "T00:00:00");
   if (isNaN(d)) return iso;
-  return d.toLocaleDateString("nl-BE", { day: "numeric", month: "short" });
+  return d.toLocaleDateString(taalLocale(), { day: "numeric", month: "short" });
 }
 
 function datumStatus(iso) {
@@ -228,18 +230,17 @@ function dagenTot(iso) {
 function datumVerschilLabel(iso) {
   if (!iso) return "";
   const dagen = dagenTot(iso);
-  if (dagen < 0) return `${Math.abs(dagen)}d te laat`;
-  if (dagen === 0) return "vandaag";
-  if (dagen === 1) return "morgen";
-  return `over ${dagen}d`;
+  if (dagen < 0) return vertaal("rel.late", { n: Math.abs(dagen) });
+  if (dagen === 0) return vertaal("rel.today");
+  if (dagen === 1) return vertaal("rel.tomorrow");
+  return vertaal("rel.in", { n: dagen });
 }
 
 function groet() {
   const uur = new Date().getHours();
-  if (uur < 6) return "Goedenacht";
-  if (uur < 12) return "Goedemorgen";
-  if (uur < 18) return "Goedemiddag";
-  return "Goedenavond";
+  if (uur >= 6 && uur < 12) return vertaal("greeting.morning");
+  if (uur >= 12 && uur < 18) return vertaal("greeting.afternoon");
+  return vertaal("greeting.evening");
 }
 
 // =========================================================
@@ -256,6 +257,21 @@ function pasThemaToe(thema) {
 function kiesThema(thema) {
   pasThemaToe(thema);
   api("/instellingen", "PUT", { thema }).catch(() => {});
+}
+
+// Vaste teksten vertalen en de taalknoppen in Instellingen markeren
+function pasTaalToe() {
+  vertaalPagina();
+  $$("[data-taal-keuze]").forEach(k => {
+    k.setAttribute("aria-pressed", String(k.dataset.taalKeuze === huidigeTaal));
+  });
+}
+
+function kiesTaal(taal) {
+  zetTaal(taal);
+  pasTaalToe();
+  route();  // huidige pagina opnieuw tekenen in de nieuwe taal
+  api("/instellingen", "PUT", { taal: huidigeTaal }).catch(() => {});
 }
 
 function pasSidebarToe(ingeklapt) {
@@ -453,15 +469,14 @@ async function renderOverzicht() {
     const dezeWeek = openDeadlines.filter(t => { const d = dagenTot(t.deadline); return d >= 0 && d <= 7; });
     const vandaag = dezeWeek.filter(t => dagenTot(t.deadline) === 0);
 
-    const datum = new Date().toLocaleDateString("nl-BE", { weekday: "long", day: "numeric", month: "long" });
+    const datum = new Date().toLocaleDateString(taalLocale(), { weekday: "long", day: "numeric", month: "long" });
     $("#overzicht-datum").textContent = datum.charAt(0).toUpperCase() + datum.slice(1);
     $("#overzicht-groet").textContent = groet();
     $("#overzicht-sub").textContent =
-      data.vakken.length === 0 ? "Maak je eerste vak aan om te beginnen." :
-      totaal === 0 ? "Voeg taken toe aan je vakken om je voortgang te volgen." :
-      klaar === totaal ? "Alle taken zijn afgerond. Goed bezig!" :
-      `Je hebt ${totaal - klaar} open ${totaal - klaar === 1 ? "taak" : "taken"}` +
-        (dezeWeek.length ? `, ${dezeWeek.length} met een deadline deze week.` : ".");
+      data.vakken.length === 0 ? vertaal("overview.empty.text") :
+      totaal === 0 ? vertaal("overview.sub.noTasks") :
+      klaar === totaal ? vertaal("overview.sub.allDone") :
+      vertaal("overview.sub.open", { open: totaal - klaar, week: dezeWeek.length });
 
     renderKpis({ klaar, totaal, teLaat, dezeWeek, vandaag });
 
@@ -504,28 +519,28 @@ function renderKpis({ klaar, totaal, teLaat, dezeWeek, vandaag }) {
   const pct = percentage(klaar, totaal);
   rij.append(
     maakKpi({
-      label: "Open taken", icoon: ICOON.lijst,
+      label: vertaal("kpi.open"), icoon: ICOON.lijst,
       waarde: String(totaal - klaar),
-      meta: `van ${totaal} in totaal`
+      meta: vertaal("kpi.open.meta", { total: totaal })
     }),
     maakKpi({
-      label: "Te laat", icoon: ICOON.alarm,
+      label: vertaal("kpi.overdue"), icoon: ICOON.alarm,
       waarde: String(teLaat.length),
-      meta: teLaat.length ? "harde deadlines verstreken" : "niets te laat",
+      meta: vertaal(teLaat.length ? "kpi.overdue.some" : "kpi.overdue.none"),
       status: teLaat.length ? "kritiek" : "",
       naar: "#/deadlines"
     }),
     maakKpi({
-      label: "Deadlines deze week", icoon: ICOON.kalender,
+      label: vertaal("kpi.week"), icoon: ICOON.kalender,
       waarde: String(dezeWeek.length),
-      meta: vandaag.length ? `waarvan ${vandaag.length} vandaag` : "komende 7 dagen",
+      meta: vandaag.length ? vertaal("kpi.week.today", { n: vandaag.length }) : vertaal("kpi.week.next"),
       status: vandaag.length ? "waarschuwing" : "",
       naar: "#/deadlines"
     }),
     maakKpi({
-      label: "Afgerond", icoon: ICOON.vinkCirkel,
+      label: vertaal("kpi.done"), icoon: ICOON.vinkCirkel,
       waarde: `${pct}%`,
-      meta: `${klaar} van ${totaal} taken`,
+      meta: vertaal("tasks.xOfY", { done: klaar, total: totaal }),
       extra: maakMeter(pct)
     })
   );
@@ -540,7 +555,7 @@ function maakVakKaart(v, volgende) {
     const [k, t] = p.per_type[type] || [0, 0];
     if (t > 0) {
       tellers.push(el("span", { class: "vak-kaart-teller" }, [
-        TYPE_LABELS[type] + " ",
+        typeLabel(type) + " ",
         el("strong", {}, `${k}/${t}`)
       ]));
     }
@@ -551,7 +566,7 @@ function maakVakKaart(v, volgende) {
     const status = datumStatus(volgende.deadline);
     volgendeRij = el("div", {
       class: "vak-kaart-volgende " + status,
-      title: `Eerstvolgende deadline: ${formatteerDatum(volgende.deadline)}`
+      title: vertaal("card.next", { date: formatteerDatum(volgende.deadline) })
     }, [
       svgIcoon(ICOON.vlag, 14, 2),
       el("span", { class: "tekst" }, volgende.titel),
@@ -560,7 +575,7 @@ function maakVakKaart(v, volgende) {
   } else {
     volgendeRij = el("div", { class: "vak-kaart-volgende leeg" }, [
       svgIcoon(ICOON.vlag, 14, 2),
-      el("span", { class: "tekst" }, "Geen open deadlines")
+      el("span", { class: "tekst" }, vertaal("card.noDeadlines"))
     ]);
   }
 
@@ -570,7 +585,7 @@ function maakVakKaart(v, volgende) {
     style: `--vak:${v.kleur}`,
     tabindex: "0",
     role: "link",
-    "aria-label": `${v.naam}, ${pct}% afgerond`,
+    "aria-label": vertaal("card.aria", { name: v.naam, pct }),
     onclick: openen,
     onkeydown: (e) => { if (e.key === "Enter") openen(); }
   }, [
@@ -579,7 +594,7 @@ function maakVakKaart(v, volgende) {
       el("div", { class: "vak-kaart-titels" }, [
         el("div", { class: "vak-kaart-naam" }, v.naam),
         el("div", { class: "vak-kaart-sub" },
-          p.totaal === 0 ? "Nog geen taken" : `${p.klaar} van ${p.totaal} taken`)
+          p.totaal === 0 ? vertaal("card.noTasks") : vertaal("tasks.xOfY", { done: p.klaar, total: p.totaal }))
       ]),
       el("span", { class: "vak-kaart-pct" }, `${pct}%`)
     ]),
@@ -639,15 +654,14 @@ function renderVak() {
 
   $("#vak-titel").textContent = vak.naam;
   $("#vak-sub").textContent = totaal === 0
-    ? "Nog geen taken in dit vak."
-    : `${klaar} van ${totaal} taken afgerond`;
+    ? vertaal("course.sub.none")
+    : vertaal("course.sub", { done: klaar, total: totaal });
   $("#vak-chip").replaceWith(Object.assign(maakVakChip(vak, true), { id: "vak-chip" }));
 
-  const typeLabels = { opdracht: "Opdrachten", theorie: "Theorie", labo: "Labo" };
   const typesHtml = TYPES.map(type => {
     const [k, t] = per_type[type];
     return el("div", { class: `vak-progress-type type-${type}` }, [
-      el("div", { class: "type-kop" }, [el("span", { class: "type-stip" }), typeLabels[type]]),
+      el("div", { class: "type-kop" }, [el("span", { class: "type-stip" }), vertaal(`types.${type}`)]),
       el("strong", {}, `${k}/${t}`),
       maakMeter(percentage(k, t), "var(--type-kleur)")
     ]);
@@ -657,7 +671,7 @@ function renderVak() {
   pDiv.innerHTML = "";
   pDiv.append(
     el("div", { class: "vak-progress-hoofd" }, [
-      el("div", { class: "vak-progress-label" }, "Voortgang"),
+      el("div", { class: "vak-progress-label" }, vertaal("course.progress")),
       el("div", { class: "vak-progress-pct" }, `${pct}%`),
       maakMeter(pct, vak.kleur)
     ]),
@@ -734,15 +748,15 @@ function maakOnderdeelElement(o, isSub) {
     }, `${klaar}/${totaal}`) : null,
     el("div", { class: "onderdeel-acties" }, [
       el("button", {
-        class: "icoon-knop klein", title: "Sub-onderdeel toevoegen",
+        class: "icoon-knop klein", title: vertaal("section.addSub"),
         onclick: (ev) => { ev.stopPropagation(); openModalOnderdeel(null, o.id); }
       }, svgIcoon(ICOON.plus, 14, 2.2)),
       el("button", {
-        class: "icoon-knop klein", title: "Naam wijzigen",
+        class: "icoon-knop klein", title: vertaal("section.rename"),
         onclick: (ev) => { ev.stopPropagation(); openModalOnderdeel(o); }
       }, svgIcoon(ICOON.potlood, 14, 2)),
       el("button", {
-        class: "icoon-knop klein", title: "Verwijderen",
+        class: "icoon-knop klein", title: vertaal("common.delete"),
         onclick: (ev) => { ev.stopPropagation(); bevestigVerwijderOnderdeel(o); }
       }, svgIcoon(ICOON.prullenbak, 14, 2))
     ])
@@ -763,7 +777,7 @@ function maakOnderdeelElement(o, isSub) {
     onclick: () => openModalTaak(null, o.id)
   }, [
     svgIcoon(ICOON.plus, 13, 2.2),
-    "Taak toevoegen"
+    vertaal("task.add")
   ]));
 
   // Sub-onderdelen
@@ -800,7 +814,7 @@ function maakTaakElement(t) {
   if (t.deadline) {
     datumDelen.push(el("span", {
       class: `taak-datum deadline ${deadlineStatus}`,
-      title: `Harde deadline (${datumVerschilLabel(t.deadline)})`
+      title: vertaal("task.deadlineTitle", { rel: datumVerschilLabel(t.deadline) })
     }, [
       svgIcoon(ICOON.vlag, 12, 2.2),
       formatteerDatum(t.deadline)
@@ -809,7 +823,7 @@ function maakTaakElement(t) {
   if (t.streefdatum) {
     datumDelen.push(el("span", {
       class: `taak-datum streef ${streefStatus}`,
-      title: `Persoonlijk streefmoment (${datumVerschilLabel(t.streefdatum)})`
+      title: vertaal("task.targetTitle", { rel: datumVerschilLabel(t.streefdatum) })
     }, [
       svgIcoon(ICOON.doel, 12, 2.2),
       formatteerDatum(t.streefdatum)
@@ -831,19 +845,19 @@ function maakTaakElement(t) {
     ondragend: stopTaakSlepen,
     onkeydown: (e) => verplaatsTaakMetToetsen(e, t)
   }, [
-    el("span", { class: "taak-grip", title: "Sleep om de volgorde te wijzigen (of Alt + ↑/↓)", "aria-hidden": "true" },
+    el("span", { class: "taak-grip", title: vertaal("task.grip"), "aria-hidden": "true" },
       svgIcoon(ICOON.grip, 14, 3)),
     checkbox,
     el("span", { class: "taak-titel" }, t.titel),
-    el("span", { class: `taak-type ${t.type}` }, TYPE_LABELS[t.type] || t.type),
+    el("span", { class: `taak-type ${t.type}` }, typeLabel(t.type)),
     ...datumDelen,
     el("div", { class: "taak-acties" }, [
       el("button", {
-        class: "icoon-knop klein", title: "Bewerken",
+        class: "icoon-knop klein", title: vertaal("common.edit"),
         onclick: () => openModalTaak(t)
       }, svgIcoon(ICOON.potlood, 13, 2)),
       el("button", {
-        class: "icoon-knop klein", title: "Verwijderen",
+        class: "icoon-knop klein", title: vertaal("common.delete"),
         onclick: () => bevestigVerwijderTaak(t)
       }, svgIcoon(ICOON.prullenbak, 13, 2))
     ])
@@ -987,10 +1001,10 @@ async function renderDeadlines() {
 // Verdeelt (gesorteerde) taken in tijdsgroepen: te laat, vandaag, deze week, later.
 function renderGroepen(container, taken, soort) {
   const groepen = [
-    { sleutel: "verlopen", titel: "Te laat", icoon: ICOON.alarm, taken: [] },
-    { sleutel: "vandaag", titel: "Vandaag", icoon: ICOON.klok, taken: [] },
-    { sleutel: "week", titel: "Komende 7 dagen", icoon: null, taken: [] },
-    { sleutel: "later", titel: "Later", icoon: null, taken: [] }
+    { sleutel: "verlopen", titel: vertaal("group.overdue"), icoon: ICOON.alarm, taken: [] },
+    { sleutel: "vandaag", titel: vertaal("group.today"), icoon: ICOON.klok, taken: [] },
+    { sleutel: "week", titel: vertaal("group.week"), icoon: null, taken: [] },
+    { sleutel: "later", titel: vertaal("group.later"), icoon: null, taken: [] }
   ];
   for (const t of taken) {
     const dagen = dagenTot(soort === "deadline" ? t.deadline : t.streefdatum);
@@ -1022,9 +1036,9 @@ function maakDeadlineItem(t, soort) {
     onclick: () => { location.hash = `#/vak/${t.vak_id}`; },
     onkeydown: (e) => { if (e.key === "Enter") location.hash = `#/vak/${t.vak_id}`; }
   }, [
-    el("div", { class: "datum-tegel", title: d.toLocaleDateString("nl-BE", { weekday: "long", day: "numeric", month: "long" }) }, [
+    el("div", { class: "datum-tegel", title: d.toLocaleDateString(taalLocale(), { weekday: "long", day: "numeric", month: "long" }) }, [
       el("span", { class: "dag" }, String(d.getDate())),
-      el("span", { class: "maand" }, d.toLocaleDateString("nl-BE", { month: "short" }).replace(".", ""))
+      el("span", { class: "maand" }, d.toLocaleDateString(taalLocale(), { month: "short" }).replace(".", ""))
     ]),
     el("div", { class: "deadline-info" }, [
       el("div", { class: "deadline-titel" }, t.titel),
@@ -1034,7 +1048,7 @@ function maakDeadlineItem(t, soort) {
         el("span", { class: "scheiding" }, "·"),
         el("span", {}, t.onderdeel_titel),
         el("span", { class: "scheiding" }, "·"),
-        el("span", {}, TYPE_LABELS[t.type] || t.type)
+        el("span", {}, typeLabel(t.type))
       ])
     ]),
     el("span", { class: "relatief " + status }, [
@@ -1072,7 +1086,7 @@ function renderKleurenPalet() {
       class: "kleur-optie" + (zelfdeKleur(kleur, state.geselecteerdeKleur) ? " geselecteerd" : ""),
       style: `background:${kleur}; --vink:${tekstKleurOp(kleur)}`,
       title: kleur,
-      "aria-label": `Kleur ${kleur}`,
+      "aria-label": vertaal("color.option", { hex: kleur }),
       onclick: () => {
         state.geselecteerdeKleur = kleur;
         renderKleurenPalet();
@@ -1099,8 +1113,8 @@ function renderInstellingen() {
       tabindex: "0",
       draggable: "true",
       dataset: { kleur },
-      title: "Sleep om de volgorde te wijzigen",
-      "aria-label": `${kleur}. Alt + pijltje links of rechts om te verplaatsen.`,
+      title: vertaal("color.drag"),
+      "aria-label": vertaal("color.aria", { hex: kleur }),
       ondragstart: (e) => {
         sleepKleur = kleur;
         e.dataTransfer.effectAllowed = "move";
@@ -1138,12 +1152,12 @@ function renderInstellingen() {
       el("span", {
         class: "kleur-gebruik",
         title: gebruik.map(v => v.naam).join(", ") || null
-      }, gebruik.length === 0 ? " " : gebruik.length === 1 ? "1 vak" : `${gebruik.length} vakken`),
+      }, gebruik.length === 0 ? "\u00a0" : vertaal("color.used", { n: gebruik.length })),
       el("button", {
         type: "button",
         class: "icoon-knop kleur-verwijder",
-        title: `${kleur} verwijderen`,
-        "aria-label": `Kleur ${kleur} verwijderen`,
+        title: vertaal("color.remove", { hex: kleur }),
+        "aria-label": vertaal("color.removeAria", { hex: kleur }),
         draggable: "false",
         onclick: () => verwijderKleur(kleur)
       }, svgIcoon(ICOON.sluiten, 13, 2.2))
@@ -1184,10 +1198,10 @@ function verplaatsKleurMetToetsen(e, kleur) {
 
 function verwijderKleur(kleur) {
   if (state.kleuren.length <= 1) {
-    toast("Je hebt minstens één kleur nodig.", "fout");
+    toast(vertaal("color.minOne"), "fout");
     return;
   }
-  bewaarKleuren(state.kleuren.filter(k => !zelfdeKleur(k, kleur)), `${kleur} verwijderd`);
+  bewaarKleuren(state.kleuren.filter(k => !zelfdeKleur(k, kleur)), vertaal("color.removed", { hex: kleur }));
 }
 
 function toonKleurFout(tekst) {
@@ -1199,33 +1213,32 @@ function voegKleurToe() {
   const invoer = $("#kleur-hex").value.trim();
   const kleur = normaliseerHex(invoer || $("#kleur-picker").value);
   if (!kleur) {
-    toonKleurFout("Geen geldige HEX-code. Gebruik bv. #4F7CAC of 4F7CAC.");
+    toonKleurFout(vertaal("color.invalid"));
     return;
   }
   if (state.kleuren.some(k => zelfdeKleur(k, kleur))) {
-    toonKleurFout(`${kleur} staat al in je kleuren.`);
+    toonKleurFout(vertaal("color.duplicate", { hex: kleur }));
     return;
   }
   if (state.kleuren.length >= MAX_KLEUREN) {
-    toonKleurFout(`Je kan maximaal ${MAX_KLEUREN} kleuren bewaren.`);
+    toonKleurFout(vertaal("color.max", { max: MAX_KLEUREN }));
     return;
   }
   toonKleurFout("");
   $("#kleur-hex").value = "";
-  bewaarKleuren([...state.kleuren, kleur], `${kleur} toegevoegd`);
+  bewaarKleuren([...state.kleuren, kleur], vertaal("color.added", { hex: kleur }));
 }
 
 function herstelStandaardKleuren() {
-  bevestig("Standaardkleuren herstellen?",
-    "Je eigen kleurenlijst wordt vervangen door de 10 standaardkleuren. " +
-    "Bestaande vakken behouden hun kleur.",
-    () => bewaarKleuren([...STANDAARD_KLEUREN], "Standaardkleuren hersteld"),
-    "Herstellen");
+  bevestig(vertaal("color.reset.title"),
+    vertaal("color.reset.text"),
+    () => bewaarKleuren([...STANDAARD_KLEUREN], vertaal("color.reset.done")),
+    vertaal("color.reset.button"));
 }
 
 // --- Modal: Vak ---
 function openModalVak(vak = null) {
-  $("#modal-vak-titel").textContent = vak ? "Vak bewerken" : "Nieuw vak";
+  $("#modal-vak-titel").textContent = vertaal(vak ? "course.modal.edit" : "course.modal.new");
   $("#vak-id").value = vak ? vak.id : "";
   $("#vak-naam").value = vak ? vak.naam : "";
   state.geselecteerdeKleur = vak ? vak.kleur : state.kleuren[0];
@@ -1247,7 +1260,7 @@ $("#form-vak").addEventListener("submit", async (e) => {
       nieuw = await api("/vakken", "POST", { naam, kleur: state.geselecteerdeKleur });
     }
     sluitModal("modal-vak");
-    toast(id ? "Vak bijgewerkt" : "Vak aangemaakt");
+    toast(vertaal(id ? "toast.courseUpdated" : "toast.courseCreated"));
     await vernieuwSidebar();
     if (nieuw) location.hash = `#/vak/${nieuw.id}`;
     else route();
@@ -1257,7 +1270,7 @@ $("#form-vak").addEventListener("submit", async (e) => {
 // --- Modal: Onderdeel ---
 function openModalOnderdeel(onderdeel = null, parentId = null) {
   $("#modal-onderdeel-titel").textContent =
-    onderdeel ? "Onderdeel bewerken" : parentId ? "Nieuw sub-onderdeel" : "Nieuw onderdeel";
+    vertaal(onderdeel ? "section.modal.edit" : parentId ? "section.modal.newSub" : "section.modal.new");
   $("#onderdeel-id").value = onderdeel ? onderdeel.id : "";
   $("#onderdeel-parent-id").value =
     onderdeel ? (onderdeel.parent_id || "") : (parentId || "");
@@ -1266,7 +1279,7 @@ function openModalOnderdeel(onderdeel = null, parentId = null) {
   const context = $("#onderdeel-context");
   if (parentId) {
     const parent = zoekOnderdeel(state.onderdelen[state.actiefVakId] || [], parentId);
-    context.textContent = parent ? `Onder: ${parent.titel}` : "";
+    context.textContent = parent ? vertaal("section.under", { title: parent.titel }) : "";
   } else {
     context.textContent = "";
   }
@@ -1301,14 +1314,14 @@ $("#form-onderdeel").addEventListener("submit", async (e) => {
       });
     }
     sluitModal("modal-onderdeel");
-    toast(id ? "Onderdeel bijgewerkt" : "Onderdeel aangemaakt");
+    toast(vertaal(id ? "toast.sectionUpdated" : "toast.sectionCreated"));
     await laadVak(state.actiefVakId);
   } catch (e) {}
 });
 
 // --- Modal: Taak ---
 function openModalTaak(taak = null, onderdeelId = null) {
-  $("#modal-taak-titel").textContent = taak ? "Taak bewerken" : "Nieuwe taak";
+  $("#modal-taak-titel").textContent = vertaal(taak ? "task.modal.edit" : "task.modal.new");
   $("#taak-id").value = taak ? taak.id : "";
   $("#taak-onderdeel-id").value = taak ? taak.onderdeel_id : onderdeelId;
   $("#taak-titel").value = taak ? taak.titel : "";
@@ -1338,7 +1351,7 @@ $("#form-taak").addEventListener("submit", async (e) => {
       await api("/taken", "POST", { ...payload, onderdeel_id: parseInt(onderdeelId, 10) });
     }
     sluitModal("modal-taak");
-    toast(id ? "Taak bijgewerkt" : "Taak aangemaakt");
+    toast(vertaal(id ? "toast.taskUpdated" : "toast.taskCreated"));
     if (state.actiefVakId) await laadVak(state.actiefVakId);
   } catch (e) {}
 });
@@ -1346,7 +1359,7 @@ $("#form-taak").addEventListener("submit", async (e) => {
 // --- Bevestig verwijderen ---
 let bevestigCallback = null;
 
-function bevestig(titel, tekst, cb, knopTekst = "Verwijderen") {
+function bevestig(titel, tekst, cb, knopTekst = vertaal("common.delete")) {
   $("#modal-bevestig-titel").textContent = titel;
   $("#modal-bevestig-tekst").textContent = tekst;
   $("#knop-bevestig-ja").textContent = knopTekst;
@@ -1364,43 +1377,42 @@ $("#knop-bevestig-ja").addEventListener("click", async () => {
 });
 
 function bevestigVerwijderVak(vak) {
-  bevestig("Vak verwijderen?",
-    `"${vak.naam}" en alle onderdelen en taken erin worden permanent verwijderd.`,
+  bevestig(vertaal("confirm.deleteCourse.title"),
+    vertaal("confirm.deleteCourse.text", { name: vak.naam }),
     async () => {
       await api(`/vakken/${vak.id}`, "DELETE");
-      toast("Vak verwijderd");
+      toast(vertaal("toast.courseDeleted"));
       await vernieuwSidebar();
       location.hash = "#/";
     });
 }
 
 function bevestigAfsluiten() {
-  bevestig("App afsluiten?",
-    "De app stopt op de achtergrond. Je gegevens zijn al opgeslagen. " +
-    "Dubbelklik op het bureaubladicoon om ze later opnieuw te starten.",
+  bevestig(vertaal("confirm.quit.title"),
+    vertaal("confirm.quit.text"),
     async () => {
       await api("/afsluiten", "POST");
       $("#gesloten").classList.remove("verborgen");
       window.close();
-    }, "Afsluiten");
+    }, vertaal("confirm.quit.button"));
 }
 
 function bevestigVerwijderOnderdeel(o) {
-  bevestig("Onderdeel verwijderen?",
-    `"${o.titel}" en alle taken en sub-onderdelen erin worden permanent verwijderd.`,
+  bevestig(vertaal("confirm.deleteSection.title"),
+    vertaal("confirm.deleteSection.text", { title: o.titel }),
     async () => {
       await api(`/onderdelen/${o.id}`, "DELETE");
-      toast("Onderdeel verwijderd");
+      toast(vertaal("toast.sectionDeleted"));
       await laadVak(state.actiefVakId);
     });
 }
 
 function bevestigVerwijderTaak(t) {
-  bevestig("Taak verwijderen?",
-    `"${t.titel}" wordt permanent verwijderd.`,
+  bevestig(vertaal("confirm.deleteTask.title"),
+    vertaal("confirm.deleteTask.text", { title: t.titel }),
     async () => {
       await api(`/taken/${t.id}`, "DELETE");
-      toast("Taak verwijderd");
+      toast(vertaal("toast.taskDeleted"));
       await laadVak(state.actiefVakId);
     });
 }
@@ -1409,20 +1421,26 @@ function bevestigVerwijderTaak(t) {
 // EVENT LISTENERS (globaal)
 // =========================================================
 document.addEventListener("DOMContentLoaded", async () => {
-  // Thema + sidebar-state laden
+  // Taal, thema en sidebar-state laden
   try {
     const inst = await api("/instellingen");
+    zetTaal(inst.taal || "en");
     pasThemaToe(inst.thema || "grey");
     pasSidebarToe(inst.sidebar_ingeklapt === "1");
     state.kleuren = laadKleuren(inst.kleuren);
   } catch (e) {
     pasThemaToe("grey");
   }
+  pasTaalToe();
+  document.documentElement.classList.remove("laden");
 
   // Knoppen
   $("#knop-sidebar-toggle").addEventListener("click", wisselSidebar);
   $$("[data-thema-keuze]").forEach(k => {
     k.addEventListener("click", () => kiesThema(k.dataset.themaKeuze));
+  });
+  $$("[data-taal-keuze]").forEach(k => {
+    k.addEventListener("click", () => kiesTaal(k.dataset.taalKeuze));
   });
   $("#knop-afsluiten").addEventListener("click", bevestigAfsluiten);
   $("#knop-instellingen").addEventListener("click", () => { location.hash = "#/instellingen"; });

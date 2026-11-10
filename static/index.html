@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl" data-thema="grey">
+<html lang="en" data-thema="grey" class="laden">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -17,7 +17,7 @@
         <img src="/icon.svg" alt="" class="merk-logo" width="26" height="26" />
         <span class="merk-naam">Elio</span>
       </div>
-      <button id="knop-sidebar-toggle" class="icoon-knop" title="Zijbalk in-/uitklappen" aria-label="Zijbalk in-/uitklappen">
+      <button id="knop-sidebar-toggle" class="icoon-knop" title="Collapse or expand sidebar" aria-label="Collapse or expand sidebar" data-i18n-title="sidebar.toggle" data-i18n-aria-label="sidebar.toggle">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="18" height="18" rx="3" />
           <line x1="9" y1="3" x2="9" y2="21" />
@@ -26,7 +26,7 @@
     </div>
 
     <nav class="sidebar-nav">
-      <a href="#/" class="nav-item" data-route="overzicht" title="Overzicht">
+      <a href="#/" class="nav-item" data-route="overzicht" title="Overview" data-i18n-title="nav.overview">
         <span class="nav-icoon">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="7" height="7" rx="1.5" />
@@ -35,10 +35,10 @@
             <rect x="14" y="14" width="7" height="7" rx="1.5" />
           </svg>
         </span>
-        <span class="nav-label">Overzicht</span>
+        <span class="nav-label" data-i18n="nav.overview">Overview</span>
       </a>
 
-      <a href="#/deadlines" class="nav-item" data-route="deadlines" title="Deadlines">
+      <a href="#/deadlines" class="nav-item" data-route="deadlines" title="Deadlines" data-i18n-title="nav.deadlines">
         <span class="nav-icoon">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="17" rx="3" />
@@ -47,13 +47,13 @@
             <line x1="16" y1="2" x2="16" y2="6" />
           </svg>
         </span>
-        <span class="nav-label">Deadlines</span>
+        <span class="nav-label" data-i18n="nav.deadlines">Deadlines</span>
       </a>
     </nav>
 
     <div class="sidebar-sectie-kop">
-      <span class="sidebar-sectie-titel">Vakken</span>
-      <button id="knop-nieuw-vak" class="icoon-knop klein" title="Nieuw vak" aria-label="Nieuw vak">
+      <span class="sidebar-sectie-titel" data-i18n="sidebar.courses">Courses</span>
+      <button id="knop-nieuw-vak" class="icoon-knop klein" title="New course" aria-label="New course" data-i18n-title="course.new" data-i18n-aria-label="course.new">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" y1="5" x2="12" y2="19" />
           <line x1="5" y1="12" x2="19" y2="12" />
@@ -66,33 +66,33 @@
     </nav>
 
     <div class="sidebar-voet">
-      <div class="thema-keuze" role="group" aria-label="Thema">
-        <button type="button" class="thema-optie" data-thema-keuze="light" title="Licht" aria-label="Licht thema">
+      <div class="thema-keuze" role="group" aria-label="Theme" data-i18n-aria-label="theme.group">
+        <button type="button" class="thema-optie" data-thema-keuze="light" title="Light" aria-label="Light" data-i18n-title="theme.light" data-i18n-aria-label="theme.light">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="4" />
             <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
           </svg>
         </button>
-        <button type="button" class="thema-optie" data-thema-keuze="grey" title="Grijs" aria-label="Grijs thema">
+        <button type="button" class="thema-optie" data-thema-keuze="grey" title="Grey" aria-label="Grey" data-i18n-title="theme.grey" data-i18n-aria-label="theme.grey">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="9" />
             <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none" />
           </svg>
         </button>
-        <button type="button" class="thema-optie" data-thema-keuze="dark" title="Donker" aria-label="Donker thema">
+        <button type="button" class="thema-optie" data-thema-keuze="dark" title="Dark" aria-label="Dark" data-i18n-title="theme.dark" data-i18n-aria-label="theme.dark">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" />
           </svg>
         </button>
       </div>
       <div class="voet-knoppen">
-        <button id="knop-instellingen" class="icoon-knop" title="Instellingen" aria-label="Instellingen">
+        <button id="knop-instellingen" class="icoon-knop" title="Settings" aria-label="Settings" data-i18n-title="settings.title" data-i18n-aria-label="settings.title">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
             <circle cx="12" cy="12" r="3" />
           </svg>
         </button>
-        <button id="knop-afsluiten" class="icoon-knop knop-afsluiten" title="App afsluiten" aria-label="App afsluiten">
+        <button id="knop-afsluiten" class="icoon-knop knop-afsluiten" title="Quit Elio" aria-label="Quit Elio" data-i18n-title="app.quit" data-i18n-aria-label="app.quit">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
             <line x1="12" y1="2" x2="12" y2="12" />
@@ -110,7 +110,7 @@
       <header class="view-header">
         <div>
           <p id="overzicht-datum" class="eyebrow"></p>
-          <h1 id="overzicht-groet">Hallo</h1>
+          <h1 id="overzicht-groet">Hello</h1>
           <p id="overzicht-sub" class="view-sub"></p>
         </div>
         <button id="knop-vak-toevoegen-boven" class="knop primair">
@@ -118,7 +118,7 @@
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          Nieuw vak
+          <span data-i18n="course.new">New course</span>
         </button>
       </header>
 
@@ -127,7 +127,7 @@
       </div>
 
       <div class="sectie-koppen">
-        <h2>Vakken</h2>
+        <h2 data-i18n="overview.courses">Courses</h2>
       </div>
 
       <div id="vakken-grid" class="vakken-grid">
@@ -141,8 +141,8 @@
             <path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5" />
           </svg>
         </div>
-        <p class="leeg-titel">Je hebt nog geen vakken</p>
-        <p class="klein">Maak je eerste vak aan om te beginnen.</p>
+        <p class="leeg-titel" data-i18n="overview.empty.title">You don't have any courses yet</p>
+        <p class="klein" data-i18n="overview.empty.text">Create your first course to get started.</p>
       </div>
     </section>
 
@@ -150,25 +150,25 @@
     <section id="view-vak" class="view verborgen">
       <header class="view-header vak-header">
         <div class="vak-header-links">
-          <button id="knop-terug" class="icoon-knop" title="Terug naar overzicht" aria-label="Terug">
+          <button id="knop-terug" class="icoon-knop" title="Back to overview" aria-label="Back" data-i18n-title="course.back" data-i18n-aria-label="course.backShort">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
           <span id="vak-chip" class="vak-chip groot"></span>
           <div>
-            <h1 id="vak-titel">Vak</h1>
+            <h1 id="vak-titel"></h1>
             <p id="vak-sub" class="view-sub"></p>
           </div>
         </div>
         <div class="vak-header-rechts">
-          <button id="knop-vak-bewerken" class="knop" title="Vak bewerken">
+          <button id="knop-vak-bewerken" class="knop" title="Edit course" data-i18n-title="course.editTitle">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
             </svg>
-            Bewerken
+            <span data-i18n="common.edit">Edit</span>
           </button>
-          <button id="knop-vak-verwijderen" class="knop gevaar" title="Vak verwijderen" aria-label="Vak verwijderen">
+          <button id="knop-vak-verwijderen" class="knop gevaar" title="Delete course" aria-label="Delete course" data-i18n-title="course.deleteTitle" data-i18n-aria-label="course.deleteTitle">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
             </svg>
@@ -181,13 +181,13 @@
       </div>
 
       <div class="sectie-koppen">
-        <h2>Onderdelen</h2>
+        <h2 data-i18n="sections.title">Sections</h2>
         <button id="knop-onderdeel-toevoegen" class="knop klein">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          Nieuw onderdeel
+          <span data-i18n="section.new">New section</span>
         </button>
       </div>
 
@@ -201,8 +201,8 @@
             <path d="M3 6h18M3 12h12M3 18h6" />
           </svg>
         </div>
-        <p class="leeg-titel">Nog geen onderdelen</p>
-        <p class="klein">Voeg een hoofdstuk, thema of labo-reeks toe.</p>
+        <p class="leeg-titel" data-i18n="sections.empty.title">No sections yet</p>
+        <p class="klein" data-i18n="sections.empty.text">Add a chapter, topic or series of labs.</p>
       </div>
     </section>
 
@@ -210,8 +210,8 @@
     <section id="view-deadlines" class="view verborgen">
       <header class="view-header">
         <div>
-          <h1>Deadlines</h1>
-          <p class="view-sub">Harde deadlines en persoonlijke streefmomenten, apart van elkaar.</p>
+          <h1 data-i18n="deadlines.title">Deadlines</h1>
+          <p class="view-sub" data-i18n="deadlines.sub">Hard deadlines and personal target dates, kept apart.</p>
         </div>
       </header>
 
@@ -220,29 +220,29 @@
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7" />
           </svg>
-          Harde deadlines
+          <span data-i18n="deadlines.tab.hard">Hard deadlines</span>
         </button>
         <button class="tab" data-tab="streef" role="tab">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" />
           </svg>
-          Mijn streefmomenten
+          <span data-i18n="deadlines.tab.target">My target dates</span>
         </button>
       </div>
 
       <div id="tab-deadlines" class="tab-paneel">
         <div id="deadlines-lijst" class="deadline-lijst"><!-- gevuld door app.js --></div>
         <div id="deadlines-leeg" class="leeg-blok verborgen">
-          <p class="leeg-titel">Geen openstaande deadlines</p>
-          <p class="klein">Je kan per taak een harde deadline toevoegen.</p>
+          <p class="leeg-titel" data-i18n="deadlines.empty.title">No open deadlines</p>
+          <p class="klein" data-i18n="deadlines.empty.text">You can add a hard deadline to any task.</p>
         </div>
       </div>
 
       <div id="tab-streef" class="tab-paneel verborgen">
         <div id="streef-lijst" class="deadline-lijst"><!-- gevuld door app.js --></div>
         <div id="streef-leeg" class="leeg-blok verborgen">
-          <p class="leeg-titel">Geen openstaande streefmomenten</p>
-          <p class="klein">Streefmomenten zijn persoonlijke doelen, los van harde deadlines.</p>
+          <p class="leeg-titel" data-i18n="target.empty.title">No open target dates</p>
+          <p class="klein" data-i18n="target.empty.text">Target dates are personal goals, separate from hard deadlines.</p>
         </div>
       </div>
     </section>
@@ -251,20 +251,32 @@
     <section id="view-instellingen" class="view smal verborgen">
       <header class="view-header">
         <div>
-          <h1>Instellingen</h1>
-          <p class="view-sub">Pas Elio aan naar jouw smaak.</p>
+          <h1 data-i18n="settings.title">Settings</h1>
+          <p class="view-sub" data-i18n="settings.sub">Make Elio your own.</p>
         </div>
       </header>
 
       <section class="instellingen-kaart">
         <div class="instellingen-kop">
           <div>
-            <h2>Kleuren voor vakken</h2>
-            <p class="klein">Uit deze kleuren kies je bij het aanmaken of bewerken van een vak.
-              Sleep om de volgorde te wijzigen; de eerste kleur krijgt een nieuw vak standaard.
-              Vakken behouden hun kleur, ook als je die hier verwijdert.</p>
+            <h2 data-i18n="settings.language">Language</h2>
+            <p class="klein" data-i18n="settings.language.text">The language of the interface.</p>
           </div>
-          <button id="knop-kleuren-herstellen" type="button" class="knop klein">Standaard herstellen</button>
+          <div class="segment" role="group" aria-label="Language" data-i18n-aria-label="settings.language">
+            <!-- Taalnamen staan bewust in hun eigen taal -->
+            <button type="button" class="segment-optie" data-taal-keuze="en" lang="en">English</button>
+            <button type="button" class="segment-optie" data-taal-keuze="nl" lang="nl">Nederlands</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="instellingen-kaart">
+        <div class="instellingen-kop">
+          <div>
+            <h2 data-i18n="settings.colors">Course colours</h2>
+            <p class="klein" data-i18n="settings.colors.text"></p>
+          </div>
+          <button id="knop-kleuren-herstellen" type="button" class="knop klein" data-i18n="settings.colors.reset">Restore defaults</button>
         </div>
 
         <div id="kleuren-beheer" class="kleuren-beheer">
@@ -272,17 +284,17 @@
         </div>
 
         <form id="form-kleur" class="kleur-toevoegen" novalidate>
-          <label class="kleur-kiezer" title="Kies een kleur">
-            <input type="color" id="kleur-picker" value="#4f7cac" aria-label="Kleurkiezer" />
+          <label class="kleur-kiezer" title="Pick a colour" data-i18n-title="color.pick">
+            <input type="color" id="kleur-picker" value="#4f7cac" aria-label="Colour picker" data-i18n-aria-label="color.picker" />
           </label>
           <input type="text" id="kleur-hex" class="hex-invoer" maxlength="7" placeholder="#4F7CAC"
-                 spellcheck="false" autocomplete="off" aria-label="HEX-code" aria-describedby="kleur-fout" />
+                 spellcheck="false" autocomplete="off" aria-label="HEX code" data-i18n-aria-label="color.hex" aria-describedby="kleur-fout" />
           <button type="submit" class="knop primair">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Kleur toevoegen
+            <span data-i18n="color.add">Add colour</span>
           </button>
         </form>
         <p id="kleur-fout" class="veld-fout" aria-live="polite"></p>
@@ -291,22 +303,22 @@
       <section class="instellingen-kaart">
         <div class="instellingen-kop">
           <div>
-            <h2>Thema</h2>
-            <p class="klein">Kan je ook onderaan in de zijbalk wisselen.</p>
+            <h2 data-i18n="settings.theme">Theme</h2>
+            <p class="klein" data-i18n="settings.theme.text">You can also switch at the bottom of the sidebar.</p>
           </div>
         </div>
         <div class="thema-tegels">
           <button type="button" class="thema-tegel" data-thema-keuze="light">
             <span class="thema-preview light"><span></span><span></span></span>
-            Licht
+            <span data-i18n="theme.light">Light</span>
           </button>
           <button type="button" class="thema-tegel" data-thema-keuze="grey">
             <span class="thema-preview grey"><span></span><span></span></span>
-            Grijs
+            <span data-i18n="theme.grey">Grey</span>
           </button>
           <button type="button" class="thema-tegel" data-thema-keuze="dark">
             <span class="thema-preview dark"><span></span><span></span></span>
-            Donker
+            <span data-i18n="theme.dark">Dark</span>
           </button>
         </div>
       </section>
@@ -318,29 +330,29 @@
   <div id="modal-vak" class="modal-achtergrond verborgen">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-vak-titel">
       <div class="modal-kop">
-        <h2 id="modal-vak-titel">Nieuw vak</h2>
-        <button type="button" class="icoon-knop klein" data-sluit-modal="modal-vak" aria-label="Sluiten">
+        <h2 id="modal-vak-titel">New course</h2>
+        <button type="button" class="icoon-knop klein" data-sluit-modal="modal-vak" aria-label="Close" data-i18n-aria-label="common.close">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
         </button>
       </div>
       <form id="form-vak">
         <input type="hidden" id="vak-id" />
         <label class="veld">
-          <span>Naam</span>
-          <input type="text" id="vak-naam" required maxlength="80" placeholder="bv. Wiskunde" />
+          <span data-i18n="field.name">Name</span>
+          <input type="text" id="vak-naam" required maxlength="80" placeholder="e.g. Mathematics" data-i18n-placeholder="course.name.placeholder" />
         </label>
         <div class="veld">
           <div class="veld-label-rij">
-            <span>Kleur</span>
-            <a href="#/instellingen" id="link-kleuren-beheren" class="tekst-link">Kleuren beheren</a>
+            <span data-i18n="field.color">Colour</span>
+            <a href="#/instellingen" id="link-kleuren-beheren" class="tekst-link" data-i18n="color.manage">Manage colours</a>
           </div>
           <div id="kleuren-palet" class="kleuren-palet">
             <!-- gevuld door app.js -->
           </div>
         </div>
         <div class="modal-acties">
-          <button type="button" class="knop" data-sluit-modal="modal-vak">Annuleren</button>
-          <button type="submit" class="knop primair">Opslaan</button>
+          <button type="button" class="knop" data-sluit-modal="modal-vak" data-i18n="common.cancel">Cancel</button>
+          <button type="submit" class="knop primair" data-i18n="common.save">Save</button>
         </div>
       </form>
     </div>
@@ -350,8 +362,8 @@
   <div id="modal-onderdeel" class="modal-achtergrond verborgen">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-onderdeel-titel">
       <div class="modal-kop">
-        <h2 id="modal-onderdeel-titel">Nieuw onderdeel</h2>
-        <button type="button" class="icoon-knop klein" data-sluit-modal="modal-onderdeel" aria-label="Sluiten">
+        <h2 id="modal-onderdeel-titel">New section</h2>
+        <button type="button" class="icoon-knop klein" data-sluit-modal="modal-onderdeel" aria-label="Close" data-i18n-aria-label="common.close">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
         </button>
       </div>
@@ -359,13 +371,13 @@
         <input type="hidden" id="onderdeel-id" />
         <input type="hidden" id="onderdeel-parent-id" />
         <label class="veld">
-          <span>Titel</span>
-          <input type="text" id="onderdeel-titel" required maxlength="120" placeholder="bv. Hoofdstuk 1" />
+          <span data-i18n="field.title">Title</span>
+          <input type="text" id="onderdeel-titel" required maxlength="120" placeholder="e.g. Chapter 1" data-i18n-placeholder="section.placeholder" />
         </label>
         <p id="onderdeel-context" class="klein"></p>
         <div class="modal-acties">
-          <button type="button" class="knop" data-sluit-modal="modal-onderdeel">Annuleren</button>
-          <button type="submit" class="knop primair">Opslaan</button>
+          <button type="button" class="knop" data-sluit-modal="modal-onderdeel" data-i18n="common.cancel">Cancel</button>
+          <button type="submit" class="knop primair" data-i18n="common.save">Save</button>
         </div>
       </form>
     </div>
@@ -375,8 +387,8 @@
   <div id="modal-taak" class="modal-achtergrond verborgen">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-taak-titel">
       <div class="modal-kop">
-        <h2 id="modal-taak-titel">Nieuwe taak</h2>
-        <button type="button" class="icoon-knop klein" data-sluit-modal="modal-taak" aria-label="Sluiten">
+        <h2 id="modal-taak-titel">New task</h2>
+        <button type="button" class="icoon-knop klein" data-sluit-modal="modal-taak" aria-label="Close" data-i18n-aria-label="common.close">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
         </button>
       </div>
@@ -384,31 +396,31 @@
         <input type="hidden" id="taak-id" />
         <input type="hidden" id="taak-onderdeel-id" />
         <label class="veld">
-          <span>Titel</span>
-          <input type="text" id="taak-titel" required maxlength="160" placeholder="bv. Oefening 3.2 uploaden" />
+          <span data-i18n="field.title">Title</span>
+          <input type="text" id="taak-titel" required maxlength="160" placeholder="e.g. Upload exercise 3.2" data-i18n-placeholder="task.placeholder" />
         </label>
         <label class="veld">
-          <span>Type</span>
+          <span data-i18n="field.type">Type</span>
           <select id="taak-type">
-            <option value="opdracht">Opdracht (uploaden)</option>
-            <option value="theorie">Theorie (slides gelezen)</option>
-            <option value="labo">Labo (gemaakt)</option>
+            <option value="opdracht" data-i18n="type.option.opdracht">Assignment (upload)</option>
+            <option value="theorie" data-i18n="type.option.theorie">Theory (slides read)</option>
+            <option value="labo" data-i18n="type.option.labo">Lab (completed)</option>
           </select>
         </label>
         <div class="veld-rij">
           <label class="veld">
-            <span>Harde deadline</span>
+            <span data-i18n="field.deadline">Hard deadline</span>
             <input type="date" id="taak-deadline" />
           </label>
           <label class="veld">
-            <span>Persoonlijk streefmoment</span>
+            <span data-i18n="field.target">Personal target date</span>
             <input type="date" id="taak-streefdatum" />
           </label>
         </div>
-        <p class="hulptekst">Beide zijn optioneel. Deadline = moet echt af zijn. Streefmoment = ik wil het tegen dan af hebben.</p>
+        <p class="hulptekst" data-i18n="task.help"></p>
         <div class="modal-acties">
-          <button type="button" class="knop" data-sluit-modal="modal-taak">Annuleren</button>
-          <button type="submit" class="knop primair">Opslaan</button>
+          <button type="button" class="knop" data-sluit-modal="modal-taak" data-i18n="common.cancel">Cancel</button>
+          <button type="submit" class="knop primair" data-i18n="common.save">Save</button>
         </div>
       </form>
     </div>
@@ -417,11 +429,11 @@
   <!-- ===================== MODAL: BEVESTIG ===================== -->
   <div id="modal-bevestig" class="modal-achtergrond verborgen">
     <div class="modal smal" role="dialog" aria-modal="true" aria-labelledby="modal-bevestig-titel">
-      <h2 id="modal-bevestig-titel">Verwijderen?</h2>
+      <h2 id="modal-bevestig-titel"></h2>
       <p id="modal-bevestig-tekst" class="modal-tekst"></p>
       <div class="modal-acties">
-        <button type="button" class="knop" data-sluit-modal="modal-bevestig">Annuleren</button>
-        <button type="button" id="knop-bevestig-ja" class="knop gevaar-vol">Verwijderen</button>
+        <button type="button" class="knop" data-sluit-modal="modal-bevestig" data-i18n="common.cancel">Cancel</button>
+        <button type="button" id="knop-bevestig-ja" class="knop gevaar-vol"></button>
       </div>
     </div>
   </div>
@@ -430,14 +442,15 @@
   <div id="gesloten" class="gesloten verborgen">
     <div>
       <img src="/icon.svg" alt="" width="56" height="56" />
-      <h2>Elio is afgesloten</h2>
-      <p class="klein">Je kan dit venster sluiten. Dubbelklik op het bureaubladicoon om opnieuw te starten.</p>
+      <h2 data-i18n="closed.title">Elio has been closed</h2>
+      <p class="klein" data-i18n="closed.text">You can close this window. Open Elio from its shortcut to start it again.</p>
     </div>
   </div>
 
   <!-- ===================== TOAST ===================== -->
   <div id="toast" class="toast verborgen" role="status" aria-live="polite"></div>
 
+  <script src="/i18n.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

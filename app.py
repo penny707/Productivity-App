@@ -102,6 +102,7 @@ def init_db():
     defaults = {
         "thema": "grey",
         "sidebar_ingeklapt": "0",
+        "taal": STANDAARD_TAAL,
     }
     for k, v in defaults.items():
         cur.execute(
@@ -176,8 +177,76 @@ def stuur_json(handler, data, status=200):
     handler.wfile.write(body)
 
 
-def stuur_fout(handler, status, bericht):
-    stuur_json(handler, {"fout": bericht}, status=status)
+def stuur_fout(handler, status, code, **waarden):
+    # "code" is een sleutel uit TEKSTEN; de melding volgt de gekozen taal
+    stuur_json(handler, {"fout": tekst(code, **waarden), "code": code}, status=status)
+
+
+# ----------------------------------------------------------------------------
+# Teksten van de server (foutmeldingen en pop-ups), in het Engels en Nederlands.
+# De teksten van de interface zelf staan in static/i18n.js.
+# ----------------------------------------------------------------------------
+STANDAARD_TAAL = "en"
+
+TEKSTEN = {
+    # API
+    "naam_verplicht": {"en": "Name is required.", "nl": "Naam is verplicht."},
+    "naam_leeg": {"en": "Name can't be empty.", "nl": "Naam mag niet leeg zijn."},
+    "titel_leeg": {"en": "Title can't be empty.", "nl": "Titel mag niet leeg zijn."},
+    "ids_geen_lijst": {"en": "ids must be a list.", "nl": "ids moet een lijst zijn."},
+    "ongeldig_id": {"en": "Invalid id.", "nl": "Ongeldig id."},
+    "ongeldig_type": {"en": "Invalid type.", "nl": "Ongeldig type."},
+    "ongeldige_parent": {"en": "Invalid parent_id.", "nl": "Ongeldige parent_id."},
+    "ongeldig_onderdeel": {"en": "Invalid onderdeel_id.", "nl": "Ongeldig onderdeel_id."},
+    "vak_titel_verplicht": {"en": "vak_id and titel are required.", "nl": "vak_id en titel zijn verplicht."},
+    "onderdeel_titel_verplicht": {"en": "onderdeel_id and titel are required.",
+                                  "nl": "onderdeel_id en titel zijn verplicht."},
+    "vak_niet_gevonden": {"en": "Course not found.", "nl": "Vak niet gevonden."},
+    "onderdeel_niet_gevonden": {"en": "Section not found.", "nl": "Onderdeel niet gevonden."},
+    "taak_niet_gevonden": {"en": "Task not found.", "nl": "Taak niet gevonden."},
+    "ongeldige_invoer": {"en": "Invalid input.", "nl": "Ongeldige invoer."},
+    "ongeldige_host": {"en": "Invalid host.", "nl": "Ongeldige host."},
+    "content_type": {"en": "Content-Type must be application/json.",
+                     "nl": "Content-Type moet application/json zijn."},
+    "route_onbekend": {"en": "API route not found.", "nl": "API route niet gevonden."},
+    "methode_niet_toegestaan": {"en": "Method not allowed.", "nl": "Methode niet toegestaan."},
+    "ongeldig_pad": {"en": "Invalid path.", "nl": "Ongeldig pad."},
+    "bestand_niet_gevonden": {"en": "File not found.", "nl": "Bestand niet gevonden."},
+    "bestand_lezen": {"en": "Could not read file: {detail}", "nl": "Kon bestand niet lezen: {detail}"},
+    "serverfout": {"en": "Server error: {detail}", "nl": "Serverfout: {detail}"},
+    # Opstarten (pop-ups)
+    "static_ontbreekt": {"en": "Folder 'static' not found at {pad}",
+                         "nl": "Map 'static' niet gevonden op {pad}"},
+    "poort_bezet": {"en": "Port {poort} is already in use by another program.\nRestart your PC or close that program.",
+                    "nl": "Poort {poort} is al in gebruik door een ander programma.\nHerstart je pc of sluit dat programma."},
+    "vorige_niet_gestopt": {"en": "The previous version of Elio could not be stopped.\nRestart your PC and try again.",
+                            "nl": "De vorige versie van Elio kon niet gestopt worden.\nHerstart je pc en probeer opnieuw."},
+    "backup_mislukt": {"en": "Creating a backup failed: {detail}", "nl": "Backup maken mislukt: {detail}"},
+    "fout_gestopt": {"en": "Elio stopped because of an error.\nDetails are in:\n{log}",
+                     "nl": "Elio is gestopt met een fout.\nDetails staan in:\n{log}"},
+}
+
+
+def taal():
+    """De gekozen taal uit de instellingen (alleen lezen; maakt geen database
+    aan als die nog niet bestaat). Valt terug op de standaardtaal."""
+    try:
+        conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+        try:
+            rij = conn.execute("SELECT waarde FROM instellingen WHERE sleutel = 'taal'").fetchone()
+        finally:
+            conn.close()
+        if rij and rij[0] in ("en", "nl"):
+            return rij[0]
+    except sqlite3.Error:
+        pass
+    return STANDAARD_TAAL
+
+
+def tekst(code, **waarden):
+    vertalingen = TEKSTEN.get(code, {})
+    sjabloon = vertalingen.get(taal()) or vertalingen.get(STANDAARD_TAAL) or code
+    return sjabloon.format(**waarden)
 
 
 # ----------------------------------------------------------------------------
@@ -198,7 +267,7 @@ def api_vakken(handler, methode, pad_delen, body):
             naam = (body.get("naam") or "").strip()
             kleur = (body.get("kleur") or "#4F7CAC").strip()
             if not naam:
-                stuur_fout(handler, 400, "Naam is verplicht.")
+                stuur_fout(handler, 400, "naam_verplicht")
                 conn.close()
                 return True
             cur.execute("SELECT COALESCE(MAX(volgorde), -1) + 1 FROM vakken")
@@ -218,7 +287,7 @@ def api_vakken(handler, methode, pad_delen, body):
     if len(pad_delen) == 3 and pad_delen[2] == "volgorde" and methode == "PUT":
         ids = body.get("ids")
         if not isinstance(ids, list):
-            stuur_fout(handler, 400, "ids moet een lijst zijn.")
+            stuur_fout(handler, 400, "ids_geen_lijst")
             conn.close()
             return True
         for volgorde, vak_id in enumerate(ids):
@@ -234,7 +303,7 @@ def api_vakken(handler, methode, pad_delen, body):
         try:
             vak_id = int(pad_delen[2])
         except ValueError:
-            stuur_fout(handler, 400, "Ongeldig id.")
+            stuur_fout(handler, 400, "ongeldig_id")
             conn.close()
             return True
 
@@ -242,7 +311,7 @@ def api_vakken(handler, methode, pad_delen, body):
             cur.execute("SELECT * FROM vakken WHERE id = ?", (vak_id,))
             row = cur.fetchone()
             if not row:
-                stuur_fout(handler, 404, "Vak niet gevonden.")
+                stuur_fout(handler, 404, "vak_niet_gevonden")
             else:
                 stuur_json(handler, row_to_dict(row))
             conn.close()
@@ -251,14 +320,14 @@ def api_vakken(handler, methode, pad_delen, body):
         if methode == "PUT":
             cur.execute("SELECT * FROM vakken WHERE id = ?", (vak_id,))
             if not cur.fetchone():
-                stuur_fout(handler, 404, "Vak niet gevonden.")
+                stuur_fout(handler, 404, "vak_niet_gevonden")
                 conn.close()
                 return True
             velden, waarden = [], []
             if "naam" in body:
                 naam = (body.get("naam") or "").strip()
                 if not naam:
-                    stuur_fout(handler, 400, "Naam mag niet leeg zijn.")
+                    stuur_fout(handler, 400, "naam_leeg")
                     conn.close()
                     return True
                 velden.append("naam = ?")
@@ -313,7 +382,7 @@ def api_onderdelen(handler, methode, pad_delen, body):
             titel = (body.get("titel") or "").strip()
             parent_id = body.get("parent_id")
             if not vak_id or not titel:
-                stuur_fout(handler, 400, "vak_id en titel zijn verplicht.")
+                stuur_fout(handler, 400, "vak_titel_verplicht")
                 conn.close()
                 return True
             if parent_id is not None:
@@ -321,7 +390,7 @@ def api_onderdelen(handler, methode, pad_delen, body):
                 cur.execute("SELECT vak_id FROM onderdelen WHERE id = ?", (parent_id,))
                 p = cur.fetchone()
                 if not p or p["vak_id"] != int(vak_id):
-                    stuur_fout(handler, 400, "Ongeldige parent_id.")
+                    stuur_fout(handler, 400, "ongeldige_parent")
                     conn.close()
                     return True
             cur.execute(
@@ -345,7 +414,7 @@ def api_onderdelen(handler, methode, pad_delen, body):
         try:
             oid = int(pad_delen[2])
         except ValueError:
-            stuur_fout(handler, 400, "Ongeldig id.")
+            stuur_fout(handler, 400, "ongeldig_id")
             conn.close()
             return True
 
@@ -353,7 +422,7 @@ def api_onderdelen(handler, methode, pad_delen, body):
             cur.execute("SELECT * FROM onderdelen WHERE id = ?", (oid,))
             row = cur.fetchone()
             if not row:
-                stuur_fout(handler, 404, "Onderdeel niet gevonden.")
+                stuur_fout(handler, 404, "onderdeel_niet_gevonden")
             else:
                 stuur_json(handler, row_to_dict(row))
             conn.close()
@@ -362,14 +431,14 @@ def api_onderdelen(handler, methode, pad_delen, body):
         if methode == "PUT":
             cur.execute("SELECT * FROM onderdelen WHERE id = ?", (oid,))
             if not cur.fetchone():
-                stuur_fout(handler, 404, "Onderdeel niet gevonden.")
+                stuur_fout(handler, 404, "onderdeel_niet_gevonden")
                 conn.close()
                 return True
             velden, waarden = [], []
             if "titel" in body:
                 titel = (body.get("titel") or "").strip()
                 if not titel:
-                    stuur_fout(handler, 400, "Titel mag niet leeg zijn.")
+                    stuur_fout(handler, 400, "titel_leeg")
                     conn.close()
                     return True
                 velden.append("titel = ?")
@@ -429,16 +498,16 @@ def api_taken(handler, methode, pad_delen, body):
             titel = (body.get("titel") or "").strip()
             ttype = (body.get("type") or "opdracht").strip()
             if not onderdeel_id or not titel:
-                stuur_fout(handler, 400, "onderdeel_id en titel zijn verplicht.")
+                stuur_fout(handler, 400, "onderdeel_titel_verplicht")
                 conn.close()
                 return True
             if ttype not in TAAK_TYPES:
-                stuur_fout(handler, 400, "Ongeldig type.")
+                stuur_fout(handler, 400, "ongeldig_type")
                 conn.close()
                 return True
             cur.execute("SELECT id FROM onderdelen WHERE id = ?", (onderdeel_id,))
             if not cur.fetchone():
-                stuur_fout(handler, 400, "Ongeldig onderdeel_id.")
+                stuur_fout(handler, 400, "ongeldig_onderdeel")
                 conn.close()
                 return True
             cur.execute(
@@ -472,7 +541,7 @@ def api_taken(handler, methode, pad_delen, body):
     if len(pad_delen) == 3 and pad_delen[2] == "volgorde" and methode == "PUT":
         ids = body.get("ids")
         if not isinstance(ids, list):
-            stuur_fout(handler, 400, "ids moet een lijst zijn.")
+            stuur_fout(handler, 400, "ids_geen_lijst")
             conn.close()
             return True
         onderdeel_id = int(body.get("onderdeel_id"))
@@ -495,7 +564,7 @@ def api_taken(handler, methode, pad_delen, body):
         try:
             tid = int(pad_delen[2])
         except ValueError:
-            stuur_fout(handler, 400, "Ongeldig id.")
+            stuur_fout(handler, 400, "ongeldig_id")
             conn.close()
             return True
 
@@ -503,7 +572,7 @@ def api_taken(handler, methode, pad_delen, body):
             cur.execute("SELECT * FROM taken WHERE id = ?", (tid,))
             row = cur.fetchone()
             if not row:
-                stuur_fout(handler, 404, "Taak niet gevonden.")
+                stuur_fout(handler, 404, "taak_niet_gevonden")
             else:
                 stuur_json(handler, row_to_dict(row))
             conn.close()
@@ -512,21 +581,21 @@ def api_taken(handler, methode, pad_delen, body):
         if methode == "PUT":
             cur.execute("SELECT * FROM taken WHERE id = ?", (tid,))
             if not cur.fetchone():
-                stuur_fout(handler, 404, "Taak niet gevonden.")
+                stuur_fout(handler, 404, "taak_niet_gevonden")
                 conn.close()
                 return True
             velden, waarden = [], []
             if "titel" in body:
                 titel = (body.get("titel") or "").strip()
                 if not titel:
-                    stuur_fout(handler, 400, "Titel mag niet leeg zijn.")
+                    stuur_fout(handler, 400, "titel_leeg")
                     conn.close()
                     return True
                 velden.append("titel = ?")
                 waarden.append(titel)
             if "type" in body:
                 if body["type"] not in TAAK_TYPES:
-                    stuur_fout(handler, 400, "Ongeldig type.")
+                    stuur_fout(handler, 400, "ongeldig_type")
                     conn.close()
                     return True
                 velden.append("type = ?")
@@ -661,7 +730,7 @@ class AppHandler(BaseHTTPRequestHandler):
         delen = [d for d in pad.split("/") if d != ""]
 
         if self.headers.get("Host", "") not in TOEGESTANE_HOSTS:
-            stuur_fout(self, 403, "Ongeldige host.")
+            stuur_fout(self, 403, "ongeldige_host")
             return
 
         # API routes
@@ -671,7 +740,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 # formulier of 'simple request' niets aanmaken of wijzigen.
                 ctype = self.headers.get("Content-Type", "")
                 if not ctype.startswith("application/json"):
-                    stuur_fout(self, 415, "Content-Type moet application/json zijn.")
+                    stuur_fout(self, 415, "content_type")
                     return
                 body = lees_json(self)
             else:
@@ -699,16 +768,16 @@ class AppHandler(BaseHTTPRequestHandler):
                 elif delen[1] == "overzicht" and methode == "GET" and len(delen) == 2:
                     api_overzicht(self)
                     return
-                stuur_fout(self, 404, "API route niet gevonden.")
+                stuur_fout(self, 404, "route_onbekend")
             except (ValueError, TypeError):
-                stuur_fout(self, 400, "Ongeldige invoer.")
+                stuur_fout(self, 400, "ongeldige_invoer")
             except Exception as e:
-                stuur_fout(self, 500, f"Serverfout: {e}")
+                stuur_fout(self, 500, "serverfout", detail=e)
             return
 
         # Statische bestanden
         if methode != "GET":
-            stuur_fout(self, 405, "Methode niet toegestaan.")
+            stuur_fout(self, 405, "methode_niet_toegestaan")
             return
 
         if pad == "/" or pad == "":
@@ -716,12 +785,12 @@ class AppHandler(BaseHTTPRequestHandler):
         else:
             veilig_pad = pad.lstrip("/").replace("\\", "/")
             if ".." in veilig_pad.split("/"):
-                stuur_fout(self, 400, "Ongeldig pad.")
+                stuur_fout(self, 400, "ongeldig_pad")
                 return
             bestand = os.path.join(STATIC_DIR, veilig_pad)
 
         if not os.path.isfile(bestand):
-            stuur_fout(self, 404, "Bestand niet gevonden.")
+            stuur_fout(self, 404, "bestand_niet_gevonden")
             return
 
         ext = os.path.splitext(bestand)[1].lower()
@@ -746,7 +815,7 @@ class AppHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
         except Exception as e:
-            stuur_fout(self, 500, f"Kon bestand niet lezen: {e}")
+            stuur_fout(self, 500, "bestand_lezen", detail=e)
 
     def do_GET(self):
         self._dispatch("GET")
@@ -893,15 +962,14 @@ def toon_app():
 def main():
     global SERVER
     if not os.path.isdir(STATIC_DIR):
-        meld_fout(f"Map 'static' niet gevonden op {STATIC_DIR}")
+        meld_fout(tekst("static_ontbreekt", pad=STATIC_DIR))
         return
     try:
         SERVER = bind_server()
     except OSError:
         status = status_draaiende_server()
         if status is None:
-            meld_fout(f"Poort {PORT} is al in gebruik door een ander programma.\n"
-                      "Herstart je pc of sluit dat programma.")
+            meld_fout(tekst("poort_bezet", poort=PORT))
             sys.exit(1)
         if status.get("versie") == CODE_VERSIE:
             # Draait al met dezelfde code (bv. tweede dubbelklik): bestaand
@@ -913,15 +981,14 @@ def main():
         try:
             SERVER = bind_server(pogingen=20)
         except OSError:
-            meld_fout("De vorige versie van Elio kon niet gestopt worden.\n"
-                      "Herstart je pc en probeer opnieuw.")
+            meld_fout(tekst("vorige_niet_gestopt"))
             sys.exit(1)
 
     init_db()
     try:
         maak_backup()
     except Exception as e:
-        meld_fout(f"Backup maken mislukt: {e}")
+        meld_fout(tekst("backup_mislukt", detail=e))
 
     threading.Thread(target=backup_lus, daemon=True).start()
     print("=" * 60)

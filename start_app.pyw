@@ -18,4 +18,4 @@ except Exception:
     log = os.path.join(app.BASE_DIR, "fout.log")
     with open(log, "a", encoding="utf-8") as f:
         traceback.print_exc(file=f)
-    app.meld_fout(f"De app is gestopt met een fout.\nDetails staan in:\n{log}")
+    app.meld_fout(app.tekst("fout_gestopt", log=log))
