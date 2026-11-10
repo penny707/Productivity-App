@@ -10,3 +10,7 @@ fout.log
 
 # Tijdelijke bestanden (bv. icoonvoorstellen)
 tmp/
+
+# Bouwresultaten van PyInstaller / Inno Setup
+build/
+dist/

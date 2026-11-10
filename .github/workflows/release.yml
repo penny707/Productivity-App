@@ -1,0 +1,149 @@
+# Bouwt Elio voor Windows en macOS en test de gebouwde app.
+# - Bij elke push naar main: bouwen + rooktest (de downloads staan dan bij de
+#   run onder "Artifacts", handig om te testen).
+# - Bij een versietag (bv. v0.1.0): daarnaast een publieke GitHub Release
+#   met het installatieprogramma (Windows) en de .dmg (macOS).
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Versie bepalen
+        id: versie
+        shell: bash
+        run: |
+          versie=$(python -c "import re; print(re.search(r'^APP_VERSIE = \"([^\"]+)\"', open('app.py', encoding='utf-8').read(), re.M).group(1))")
+          echo "versie=$versie" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF#refs/tags/v}" != "$versie" ]]; then
+            echo "De tag (${GITHUB_REF#refs/tags/}) past niet bij APP_VERSIE in app.py ($versie)."
+            exit 1
+          fi
+
+      - name: Bouwen met PyInstaller
+        run: |
+          pip install pyinstaller==6.11.1
+          pyinstaller --noconfirm --clean packaging/elio.spec
+
+      - name: Rooktest van de gebouwde app
+        shell: bash
+        env:
+          ELIO_PORT: "8797"
+          ELIO_DATA: ${{ runner.temp }}/elio-rook
+        run: |
+          trap './dist/Elio/Elio.exe --stop' EXIT
+          ./dist/Elio/Elio.exe --server > rook.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8797/api/status && break; sleep 1; done
+          curl -sf http://127.0.0.1:8797/api/status | grep '"app_versie": "${{ steps.versie.outputs.versie }}"'
+          curl -sf http://127.0.0.1:8797/ | grep -q "<title>Elio</title>"
+          curl -sf -X POST -H "Content-Type: application/json" -d '{"naam": "Rooktest"}' http://127.0.0.1:8797/api/vakken
+
+      - name: Installatieprogramma (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc "/DAppVersie=${{ steps.versie.outputs.versie }}" packaging\elio.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Portable zip
+        shell: pwsh
+        run: Compress-Archive -Path dist\Elio\* -DestinationPath "dist\Elio-${{ steps.versie.outputs.versie }}-windows-portable.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: elio-windows
+          path: |
+            dist/Elio-Setup-*.exe
+            dist/Elio-*-windows-portable.zip
+
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Versie bepalen
+        id: versie
+        run: |
+          versie=$(python -c "import re; print(re.search(r'^APP_VERSIE = \"([^\"]+)\"', open('app.py', encoding='utf-8').read(), re.M).group(1))")
+          echo "versie=$versie" >> "$GITHUB_OUTPUT"
+
+      - name: Bouwen met PyInstaller
+        run: |
+          pip install pyinstaller==6.11.1
+          pyinstaller --noconfirm --clean packaging/elio.spec
+
+      - name: Rooktest van de gebouwde app
+        env:
+          ELIO_PORT: "8797"
+          ELIO_DATA: ${{ runner.temp }}/elio-rook
+        run: |
+          trap './dist/Elio.app/Contents/MacOS/Elio --stop' EXIT
+          ./dist/Elio.app/Contents/MacOS/Elio --server > rook.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8797/api/status && break; sleep 1; done
+          curl -sf http://127.0.0.1:8797/api/status | grep '"app_versie": "${{ steps.versie.outputs.versie }}"'
+          curl -sf http://127.0.0.1:8797/ | grep -q "<title>Elio</title>"
+          curl -sf -X POST -H "Content-Type: application/json" -d '{"naam": "Rooktest"}' http://127.0.0.1:8797/api/vakken
+
+      - name: Schijfkopie (.dmg)
+        run: |
+          mkdir dmg
+          cp -R dist/Elio.app dmg/
+          ln -s /Applications dmg/Applications
+          # hdiutil faalt op build-machines soms met "Resource busy": tot 3 pogingen
+          for poging in 1 2 3; do
+            hdiutil create -volname "Elio" -srcfolder dmg -ov -format UDZO \
+              "dist/Elio-${{ steps.versie.outputs.versie }}-macos.dmg" && break
+            sleep 5
+          done
+          test -f "dist/Elio-${{ steps.versie.outputs.versie }}-macos.dmg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: elio-macos
+          path: dist/Elio-*-macos.dmg
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: uitvoer
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: uitvoer/*
+          generate_release_notes: true
+          body: |
+            **Windows:** download `Elio-Setup-…exe` and run it. Windows may show "Windows protected your PC": click *More info* → *Run anyway*.
+            Prefer not to install? Use the portable zip.
+
+            **macOS (Apple Silicon):** open the `.dmg` and drag Elio to Applications. The first time, macOS may block it: open *System Settings → Privacy & Security* and click *Open Anyway*.
+
+            See the [README](https://github.com/penny707/Productivity-App#download) for details.

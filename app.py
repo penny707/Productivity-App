@@ -22,8 +22,17 @@ from urllib.parse import urlparse, parse_qs
 # ----------------------------------------------------------------------------
 # Configuratie
 # ----------------------------------------------------------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_DIR = os.path.join(BASE_DIR, "static")
+APP_VERSIE = "0.1.0"
+
+# True in de ingepakte app (PyInstaller): dan staan de bestanden van de
+# interface in een eigen map (sys._MEIPASS) en niet naast app.py.
+IS_INGEPAKT = getattr(sys, "frozen", False)
+if IS_INGEPAKT:
+    BASE_DIR = os.path.dirname(sys.executable)
+    STATIC_DIR = os.path.join(getattr(sys, "_MEIPASS", BASE_DIR), "static")
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 
 def bepaal_data_map():
@@ -48,16 +57,20 @@ BACKUPS_BEWAREN = 14
 OUDE_DB_PATH = os.path.join(BASE_DIR, "data.db")
 OUDE_BACKUP_DIR = os.path.join(BASE_DIR, "backups")
 HOST = "127.0.0.1"
-PORT = 8765
+PORT = int(os.environ.get("ELIO_PORT", "8765"))  # ELIO_PORT: andere poort (voor tests)
 URL = f"http://{HOST}:{PORT}/"
 APP_ID = "elio"
 VENSTER_TITEL = "Elio"  # moet gelijk zijn aan <title> in static/index.html
 OUDE_APP_IDS = {"productivity-app"}  # vorige naam, om een oude server te herkennen
 
 # Vingerafdruk van deze code. Draait er nog een server met andere (oudere)
-# code, dan wordt die bij het starten automatisch vervangen.
-with open(os.path.abspath(__file__), "rb") as _f:
-    CODE_VERSIE = hashlib.sha1(_f.read()).hexdigest()[:12]
+# code, dan wordt die bij het starten automatisch vervangen. In de ingepakte
+# app is er geen app.py om te lezen: daar telt het versienummer.
+if IS_INGEPAKT:
+    CODE_VERSIE = f"app-{APP_VERSIE}"
+else:
+    with open(os.path.abspath(__file__), "rb") as _f:
+        CODE_VERSIE = hashlib.sha1(_f.read()).hexdigest()[:12]
 
 # Alleen verzoeken met deze Host-header worden aanvaard (bescherming tegen
 # DNS-rebinding: andere websites kunnen zo niet bij je gegevens).
@@ -843,7 +856,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 body = {}
             try:
                 if delen[1] == "status" and methode == "GET":
-                    stuur_json(self, {"app": APP_ID, "versie": CODE_VERSIE})
+                    stuur_json(self, {"app": APP_ID, "versie": CODE_VERSIE,
+                                      "app_versie": APP_VERSIE})
                     return
                 elif delen[1] == "afsluiten" and methode == "POST":
                     stuur_json(self, {"ok": True})
@@ -942,13 +956,18 @@ class AppServer(ThreadingHTTPServer):
 # Start
 # ----------------------------------------------------------------------------
 def meld_fout(bericht):
-    """Toont een foutmelding: in de console, of als pop-up wanneer de app
-    zonder console draait (pythonw via het bureaubladicoon)."""
-    if sys.stdout is not None:
+    """Toont een foutmelding: in de console, of als pop-up wanneer Elio
+    zonder console draait (snelkoppeling of geïnstalleerde app)."""
+    zonder_console = sys.stdout is None or (IS_INGEPAKT and sys.platform == "darwin")
+    if not zonder_console:
         print(f"[!] {bericht}")
-    else:
+    elif sys.platform == "win32":
         import ctypes
         ctypes.windll.user32.MessageBoxW(None, bericht, "Elio", 0x10)
+    elif sys.platform == "darwin":
+        # json.dumps geeft een tekst tussen aanhalingstekens die AppleScript begrijpt
+        script = f'display alert "Elio" message {json.dumps(bericht)} as critical'
+        subprocess.run(["osascript", "-e", script], check=False)
 
 
 def _opener():
@@ -990,23 +1009,39 @@ def bind_server(pogingen=1):
             time.sleep(0.25)
 
 
-def zoek_edge():
-    for basis in ("ProgramFiles(x86)", "ProgramFiles", "LocalAppData"):
-        map_ = os.environ.get(basis)
-        if map_:
-            pad = os.path.join(map_, "Microsoft", "Edge", "Application", "msedge.exe")
-            if os.path.isfile(pad):
-                return pad
-    return None
+def zoek_app_browser():
+    """Een browser die een eigen app-venster kan openen (--app): Edge of
+    Chrome (of een andere Chromium-browser). None als er geen is."""
+    if sys.platform == "win32":
+        kandidaten = [
+            os.path.join(os.environ.get(basis, ""), *deel)
+            for basis in ("ProgramFiles(x86)", "ProgramFiles", "LocalAppData")
+            for deel in (("Microsoft", "Edge", "Application", "msedge.exe"),
+                         ("Google", "Chrome", "Application", "chrome.exe"))
+            if os.environ.get(basis)
+        ]
+    elif sys.platform == "darwin":
+        kandidaten = [
+            os.path.join(map_, app, "Contents", "MacOS", naam)
+            for map_ in ("/Applications", os.path.expanduser("~/Applications"))
+            for app, naam in (("Google Chrome.app", "Google Chrome"),
+                              ("Microsoft Edge.app", "Microsoft Edge"),
+                              ("Brave Browser.app", "Brave Browser"),
+                              ("Chromium.app", "Chromium"))
+        ]
+    else:
+        kandidaten = [shutil.which(n) or "" for n in
+                      ("microsoft-edge", "google-chrome", "chromium", "chromium-browser")]
+    return next((p for p in kandidaten if p and os.path.isfile(p)), None)
 
 
 def open_app_venster():
-    # Edge in app-modus: eigen venster zonder adresbalk of tabbladen.
-    # Geen Edge gevonden? Dan gewoon de standaardbrowser.
-    edge = zoek_edge()
-    if edge:
+    # Browser in app-modus: eigen venster zonder adresbalk of tabbladen.
+    # Geen geschikte browser gevonden? Dan gewoon de standaardbrowser.
+    browser = zoek_app_browser()
+    if browser:
         try:
-            subprocess.Popen([edge, f"--app={URL}"])
+            subprocess.Popen([browser, f"--app={URL}"])
             return
         except OSError:
             pass
@@ -1055,8 +1090,57 @@ def toon_app():
         open_app_venster()
 
 
+def start_server_op_achtergrond():
+    """Start de server als apart proces dat blijft draaien nadat dit
+    (start)proces stopt. Geeft True terug zodra de server antwoordt."""
+    if IS_INGEPAKT:
+        opdracht = [sys.executable, "--server"]
+    else:
+        opdracht = [sys.executable, os.path.abspath(__file__), "--server"]
+    subprocess.Popen(opdracht, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL, start_new_session=True, close_fds=True)
+    for _ in range(60):  # hoogstens ~15 seconden wachten
+        if status_draaiende_server():
+            return True
+        time.sleep(0.25)
+    return False
+
+
+def start_als_starter():
+    """macOS: een app die al draait kan daar niet opnieuw gestart worden.
+    Daarom draait de server apart op de achtergrond, en is elke klik op
+    Elio een kort startproces dat de server (zo nodig) start of vervangt,
+    het venster opent en weer stopt."""
+    status = status_draaiende_server()
+    if status and status.get("versie") == CODE_VERSIE:
+        open_app_venster()
+        return
+    if status:  # er draait een oudere versie: vervangen
+        stop_draaiende_server()
+        time.sleep(0.5)
+    if not start_server_op_achtergrond():
+        meld_fout(tekst("poort_bezet", poort=PORT))
+        sys.exit(1)
+    open_app_venster()
+
+
 def main():
     global SERVER
+    alleen_server = "--server" in sys.argv  # zonder venster (achtergrond of tests)
+    if "--stop" in sys.argv:
+        # Draaiende server stoppen (gebruikt door het installatieprogramma);
+        # wachten tot ze echt weg is, zodat haar bestanden vrij zijn.
+        if status_draaiende_server():
+            stop_draaiende_server()
+            for _ in range(40):
+                if status_draaiende_server() is None:
+                    break
+                time.sleep(0.25)
+            time.sleep(0.5)
+        return
+    if sys.platform == "darwin" and not alleen_server:
+        start_als_starter()
+        return
     if not os.path.isdir(STATIC_DIR):
         meld_fout(tekst("static_ontbreekt", pad=STATIC_DIR))
         return
@@ -1070,7 +1154,8 @@ def main():
         if status.get("versie") == CODE_VERSIE:
             # Draait al met dezelfde code (bv. tweede dubbelklik): bestaand
             # venster tonen, of een nieuw openen als er geen meer open is.
-            toon_app()
+            if not alleen_server:
+                toon_app()
             return
         # Er draait een oudere versie (bv. na een update): vervangen.
         stop_draaiende_server()
@@ -1100,7 +1185,8 @@ def main():
     print(f" Database: {DB_PATH}")
     print(" Sluiten: Ctrl+C in dit venster, of 'Afsluiten' in de app")
     print("=" * 60)
-    toon_app()
+    if not alleen_server:
+        toon_app()
     try:
         SERVER.serve_forever()
     except KeyboardInterrupt:

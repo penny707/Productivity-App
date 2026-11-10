@@ -319,6 +319,56 @@ class VerhuisTest(unittest.TestCase):
 
 
 # ----------------------------------------------------------------------------
+# Starter (zoals op macOS): server apart op de achtergrond, korte startprocessen
+# ----------------------------------------------------------------------------
+class StarterTest(unittest.TestCase):
+    def setUp(self):
+        import socket
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            self.poort = s.getsockname()[1]
+        # Het achtergrondproces erft deze omgeving: eigen poort en tijdelijke gegevens
+        self.oud = {k: os.environ.get(k) for k in ("ELIO_PORT", "ELIO_DATA")}
+        os.environ["ELIO_PORT"] = str(self.poort)
+        os.environ["ELIO_DATA"] = tijdelijke_map(self)
+        self.oude_waarden = (app.PORT, app.URL, app.open_app_venster)
+        app.PORT = self.poort
+        app.URL = f"http://127.0.0.1:{self.poort}/"
+        self.vensters = []
+        app.open_app_venster = lambda: self.vensters.append(1)
+
+    def tearDown(self):
+        app.stop_draaiende_server()
+        app.PORT, app.URL, app.open_app_venster = self.oude_waarden
+        for k, v in self.oud.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    def test_starter_start_een_server_en_hergebruikt_ze(self):
+        app.start_als_starter()
+        status = app.status_draaiende_server()
+        self.assertIsNotNone(status)
+        self.assertEqual(status["versie"], app.CODE_VERSIE)
+        app.start_als_starter()  # tweede klik: dezelfde server, enkel een venster
+        self.assertEqual(self.vensters, [1, 1])
+        # --stop stopt de achtergrondserver
+        oud_argv = sys.argv
+        sys.argv = ["app.py", "--stop"]
+        try:
+            app.main()
+        finally:
+            sys.argv = oud_argv
+        for _ in range(40):
+            if app.status_draaiende_server() is None:
+                break
+            import time
+            time.sleep(0.25)
+        self.assertIsNone(app.status_draaiende_server())
+
+
+# ----------------------------------------------------------------------------
 # Teksten van de server
 # ----------------------------------------------------------------------------
 class TekstTest(unittest.TestCase):

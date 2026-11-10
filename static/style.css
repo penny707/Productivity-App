@@ -1424,6 +1424,8 @@ html[data-thema="dark"] .veld select { color-scheme: dark; }
 .kleur-toevoegen .knop { height: 40px; }
 .veld-fout { font-size: 12.5px; color: var(--gevaar); min-height: 18px; margin-top: 6px; }
 
+.versie-regel { text-align: center; font-size: 12px; color: var(--tekst-flauw); margin: 8px 0 0; }
+
 /* Gesegmenteerde keuze (bv. taal) */
 .segment {
   display: inline-flex;

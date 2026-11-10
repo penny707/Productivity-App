@@ -5,19 +5,50 @@
 <h1 align="center">Elio</h1>
 
 <p align="center">
-  A local-first study planner for Windows: track tasks per course, hard deadlines and personal target dates.<br>
+  A local-first study planner for Windows and macOS: track tasks per course, hard deadlines and personal target dates.<br>
   Python standard library + vanilla JavaScript. <strong>Zero dependencies.</strong>
 </p>
 
 <p align="center">
   <a href="https://github.com/penny707/Productivity-App/actions/workflows/tests.yml"><img src="https://github.com/penny707/Productivity-App/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
+  <a href="https://github.com/penny707/Productivity-App/releases/latest"><img src="https://img.shields.io/github/v/release/penny707/Productivity-App?label=download" alt="Latest release"></a>
 </p>
 
 ---
 
-Elio runs entirely on your own PC. Your data lives in a single SQLite file in your
-user profile, and nothing is sent to the internet. It opens in its own window like a
-native app, with a desktop/Start menu shortcut and no console window.
+Elio runs entirely on your own computer. Your data lives in a single SQLite file in
+your user profile, and nothing is sent to the internet. It opens in its own window like a
+native app, with a Start menu entry and no console window.
+
+## Download
+
+Get the latest version from the **[Releases page](https://github.com/penny707/Productivity-App/releases/latest)**.
+You don't need Python or anything else.
+
+### Windows 10 / 11
+
+1. Download **`Elio-Setup-<version>.exe`** and run it. No administrator rights are
+   needed; Elio is installed for your user only.
+2. Windows may show *"Windows protected your PC"*, because Elio isn't signed with a
+   paid certificate. Click **More info → Run anyway**.
+3. Start Elio from the Start menu. To pin it to the taskbar: right-click **Elio** in
+   Start and choose *Pin to taskbar*.
+
+Prefer not to install anything? Download the **portable zip**, extract it anywhere and
+run `Elio.exe`.
+
+To uninstall, use *Settings → Apps → Installed apps → Elio*. Your data stays in
+`%APPDATA%\Elio`.
+
+### macOS (Apple Silicon: M1 or newer)
+
+1. Download **`Elio-<version>-macos.dmg`**, open it and drag **Elio** into
+   **Applications**.
+2. The first time, macOS may say it can't verify Elio, because it isn't notarised by
+   Apple. Open *System Settings → Privacy & Security*, scroll down and click
+   **Open Anyway**.
+3. Elio opens in Google Chrome, Microsoft Edge or Brave as an app window if one of them
+   is installed, otherwise in your default browser.
 
 ## Features
 
@@ -40,23 +71,38 @@ native app, with a desktop/Start menu shortcut and no console window.
   server's messages follow the chosen language.
 - **Automatic daily backups.** Kept in `backups/` (the last 14 are retained).
 - **Feels like a real app.**
-  - It opens in its own window (Microsoft Edge app mode).
-  - Launching it again brings the existing window to the front instead of opening a second one.
+  - It opens in its own window (browser app mode: Edge or Chrome).
+  - On Windows, launching it again brings the existing window to the front instead
+    of opening a second one.
   - After an update, the background server replaces itself automatically.
 
-## Getting started (Windows)
+## Run from source
+
+For development, or if you prefer running the code yourself:
 
 1. Install **Python 3.11+** from [python.org](https://www.python.org/downloads/)
-   and tick **"Add Python to PATH"** during installation.
+   (on Windows, tick **"Add Python to PATH"**).
 2. Clone or download this repository.
-3. Double-click **`snelkoppeling_maken.bat`** (Dutch for "create shortcut").
-   An **Elio** shortcut is added to your Start menu and desktop.
-4. Start Elio from the shortcut. To pin it to the taskbar: open Start, right-click
-   **Elio** and choose *Pin to taskbar*.
+3. Run `python app.py`. On Windows you can also double-click
+   **`snelkoppeling_maken.bat`** (Dutch for "create shortcut") to add an **Elio**
+   shortcut to your Start menu and desktop.
 
-For troubleshooting, run `start_app.bat` instead. It starts Elio with a console
+For troubleshooting on Windows, run `start_app.bat`. It starts Elio with a console
 window that shows any error messages. Errors from the silent launcher are written to
-`fout.log`.
+`fout.log` in the data folder.
+
+## Building the apps
+
+GitHub Actions builds both apps on every push to `main`
+([workflow](.github/workflows/release.yml)) and tests the built app before keeping it.
+Pushing a version tag publishes a release:
+
+1. Set `APP_VERSIE` in `app.py` (e.g. `0.2.0`).
+2. Commit, then `git tag v0.2.0` and `git push origin v0.2.0`.
+
+To build locally: `pip install pyinstaller==6.11.1`, then
+`pyinstaller --noconfirm --clean packaging/elio.spec`. The Windows installer is made
+with [Inno Setup](https://jrsoftware.org/isinfo.php): `iscc /DAppVersie=0.2.0 packaging\elio.iss`.
 
 ## How it works
 
@@ -141,6 +187,11 @@ tests/
   check_i18n.js          checks that every text exists in both languages
 .github/workflows/
   tests.yml              runs all tests on Windows, macOS and Linux on every push
+  release.yml            builds and tests the Windows and macOS apps; publishes releases
+packaging/
+  elio.spec              PyInstaller recipe (Windows folder / macOS .app)
+  elio.iss               Inno Setup script for the Windows installer
+  icon.icns              macOS app icon
 ```
 
 ## Tests
@@ -158,7 +209,7 @@ they never touch your own data. GitHub Actions runs them on every push.
 - [x] English / Dutch language switch (English as default)
 - [x] Automated tests with GitHub Actions
 - [x] Data stored in the user profile, with database versions
-- [ ] Standalone app for Windows and macOS (PyInstaller) and downloadable releases
+- [x] Standalone app for Windows and macOS (PyInstaller) and downloadable releases
 - [ ] "Today" view: overdue, due today and tasks pinned for today
 - [ ] Task notes
 - [ ] Backups from Settings: create one now, see the history, restore

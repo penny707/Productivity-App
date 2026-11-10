@@ -1168,6 +1168,10 @@ function renderInstellingen() {
     const terug = lijst.querySelector(`[data-kleur="${focusKleur}"]`);
     if (terug) terug.focus();
   }
+
+  api("/status").then(s => {
+    $("#app-versie").textContent = vertaal("settings.version", { version: s.app_versie });
+  }).catch(() => {});
 }
 
 // ---------- Kleuren herordenen (slepen of Alt+pijltjes) ----------
