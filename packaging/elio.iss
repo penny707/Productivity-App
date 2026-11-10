@@ -1,6 +1,7 @@
 ; Inno Setup-script voor het Windows-installatieprogramma van Elio.
 ; Bouwen (na PyInstaller):  iscc /DAppVersie=0.1.0 packaging\elio.iss
-; Resultaat: dist\Elio-Setup-<versie>.exe
+; Resultaat: dist\Elio-Setup.exe (vaste naam, zodat een downloadlink naar
+; "de nieuwste versie" altijd werkt; de versie zit in het bestand zelf)
 
 #ifndef AppVersie
   #define AppVersie "0.0.0"
@@ -20,7 +21,7 @@ PrivilegesRequired=lowest
 DefaultDirName={localappdata}\Programs\Elio
 DisableProgramGroupPage=yes
 OutputDir=..\dist
-OutputBaseFilename=Elio-Setup-{#AppVersie}
+OutputBaseFilename=Elio-Setup
 SetupIconFile=..\static\icon.ico
 UninstallDisplayIcon={app}\Elio.exe
 UninstallDisplayName=Elio

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="64" viewBox="0 0 300 64" role="img" aria-label="Download for Windows">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c8cff"/>
+      <stop offset="1" stop-color="#4f5fd6"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="64" rx="16" fill="url(#g)"/>
+  <!-- Download-pijl -->
+  <g transform="translate(24 18)" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 3v17M7 13l7 7 7-7M4 26h20"/>
+  </g>
+  <text x="66" y="30" fill="#fff" font-family="Segoe UI, -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="18" font-weight="600">Download for Windows</text>
+  <text x="66" y="49" fill="#fff" fill-opacity="0.82" font-family="Segoe UI, -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="12.5">Windows 10 and 11 · installer</text>
+</svg>

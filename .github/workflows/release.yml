@@ -64,14 +64,14 @@ jobs:
 
       - name: Portable zip
         shell: pwsh
-        run: Compress-Archive -Path dist\Elio\* -DestinationPath "dist\Elio-${{ steps.versie.outputs.versie }}-windows-portable.zip"
+        run: Compress-Archive -Path dist\Elio\* -DestinationPath "dist\Elio-Windows-portable.zip"
 
       - uses: actions/upload-artifact@v4
         with:
           name: elio-windows
           path: |
-            dist/Elio-Setup-*.exe
-            dist/Elio-*-windows-portable.zip
+            dist/Elio-Setup.exe
+            dist/Elio-Windows-portable.zip
 
   macos:
     name: macOS
@@ -114,15 +114,15 @@ jobs:
           # hdiutil faalt op build-machines soms met "Resource busy": tot 3 pogingen
           for poging in 1 2 3; do
             hdiutil create -volname "Elio" -srcfolder dmg -ov -format UDZO \
-              "dist/Elio-${{ steps.versie.outputs.versie }}-macos.dmg" && break
+              "dist/Elio-macOS.dmg" && break
             sleep 5
           done
-          test -f "dist/Elio-${{ steps.versie.outputs.versie }}-macos.dmg"
+          test -f "dist/Elio-macOS.dmg"
 
       - uses: actions/upload-artifact@v4
         with:
           name: elio-macos
-          path: dist/Elio-*-macos.dmg
+          path: dist/Elio-macOS.dmg
 
   release:
     name: GitHub Release
@@ -141,9 +141,9 @@ jobs:
           files: uitvoer/*
           generate_release_notes: true
           body: |
-            **Windows:** download `Elio-Setup-…exe` and run it. Windows may show "Windows protected your PC": click *More info* → *Run anyway*.
+            **Windows:** download `Elio-Setup.exe` and run it. SmartScreen may say it "prevented an unrecognized app from starting": click the **More info** link in the message, then **Run anyway**. (Or right-click the file → Properties → tick **Unblock** → OK.)
             Prefer not to install? Use the portable zip.
 
-            **macOS (Apple Silicon):** open the `.dmg` and drag Elio to Applications. The first time, macOS may block it: open *System Settings → Privacy & Security* and click *Open Anyway*.
+            **macOS (Apple Silicon):** open `Elio-macOS.dmg` and drag Elio to Applications. The first time, macOS may block it: open *System Settings → Privacy & Security* and click *Open Anyway*.
 
             See the [README](https://github.com/penny707/Productivity-App#download) for details.

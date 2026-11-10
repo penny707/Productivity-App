@@ -57,7 +57,8 @@ BACKUPS_BEWAREN = 14
 OUDE_DB_PATH = os.path.join(BASE_DIR, "data.db")
 OUDE_BACKUP_DIR = os.path.join(BASE_DIR, "backups")
 HOST = "127.0.0.1"
-PORT = int(os.environ.get("ELIO_PORT", "8765"))  # ELIO_PORT: andere poort (voor tests)
+STANDAARD_POORT = 8765
+PORT = int(os.environ.get("ELIO_PORT", STANDAARD_POORT))  # ELIO_PORT: andere poort (tests, demo)
 URL = f"http://{HOST}:{PORT}/"
 APP_ID = "elio"
 VENSTER_TITEL = "Elio"  # moet gelijk zijn aan <title> in static/index.html
@@ -1086,8 +1087,11 @@ def focus_bestaand_venster():
 
 def toon_app():
     # Eén Elio-venster: bestaat het al, dan dat tonen; anders een nieuw openen.
-    if not focus_bestaand_venster():
-        open_app_venster()
+    # Alleen op de standaardpoort: draait Elio op een andere poort (bv. met
+    # demogegevens), dan hoort een open venster bij een andere instantie.
+    if PORT == STANDAARD_POORT and focus_bestaand_venster():
+        return
+    open_app_venster()
 
 
 def start_server_op_achtergrond():

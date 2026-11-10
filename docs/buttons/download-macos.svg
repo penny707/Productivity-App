@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="64" viewBox="0 0 300 64" role="img" aria-label="Download for macOS">
+  <rect width="300" height="64" rx="16" fill="#1d2027"/>
+  <rect x="0.75" y="0.75" width="298.5" height="62.5" rx="15.25" fill="none" stroke="#7c8cff" stroke-opacity="0.55" stroke-width="1.5"/>
+  <!-- Download-pijl -->
+  <g transform="translate(24 18)" fill="none" stroke="#9aa6ff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 3v17M7 13l7 7 7-7M4 26h20"/>
+  </g>
+  <text x="66" y="30" fill="#fff" font-family="Segoe UI, -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="18" font-weight="600">Download for macOS</text>
+  <text x="66" y="49" fill="#fff" fill-opacity="0.72" font-family="Segoe UI, -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="12.5">Apple Silicon (M1 or newer)</text>
+</svg>
