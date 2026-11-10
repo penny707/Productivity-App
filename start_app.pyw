@@ -15,7 +15,9 @@ try:
 except SystemExit:
     pass
 except Exception:
-    log = os.path.join(app.BASE_DIR, "fout.log")
+    # In de gegevensmap: de programmamap is na installatie niet altijd beschrijfbaar
+    os.makedirs(app.DATA_DIR, exist_ok=True)
+    log = os.path.join(app.DATA_DIR, "fout.log")
     with open(log, "a", encoding="utf-8") as f:
         traceback.print_exc(file=f)
     app.meld_fout(app.tekst("fout_gestopt", log=log))

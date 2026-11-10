@@ -1,0 +1,41 @@
+# Draait de tests bij elke push en pull request, op Windows, macOS en Linux.
+# Resultaat: een groen vinkje (of rood kruisje) bij elke commit op GitHub.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  server:
+    name: Server (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        python: ["3.11", "3.x"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Tests uitvoeren
+        run: python -m unittest discover -s tests -v
+
+  interface:
+    name: Interface (JavaScript en vertalingen)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: JavaScript-syntax controleren
+        run: |
+          node --check static/app.js
+          node --check static/i18n.js
+      - name: Vertalingen controleren
+        run: node tests/check_i18n.js

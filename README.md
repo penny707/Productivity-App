@@ -9,10 +9,14 @@
   Python standard library + vanilla JavaScript. <strong>Zero dependencies.</strong>
 </p>
 
+<p align="center">
+  <a href="https://github.com/penny707/Productivity-App/actions/workflows/tests.yml"><img src="https://github.com/penny707/Productivity-App/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
+</p>
+
 ---
 
-Elio runs entirely on your own PC. Your data lives in a single SQLite file next to
-the app, and nothing is sent to the internet. It opens in its own window like a
+Elio runs entirely on your own PC. Your data lives in a single SQLite file in your
+user profile, and nothing is sent to the internet. It opens in its own window like a
 native app, with a desktop/Start menu shortcut and no console window.
 
 ## Features
@@ -42,7 +46,7 @@ native app, with a desktop/Start menu shortcut and no console window.
 
 ## Getting started (Windows)
 
-1. Install **Python 3.8+** from [python.org](https://www.python.org/downloads/)
+1. Install **Python 3.11+** from [python.org](https://www.python.org/downloads/)
    and tick **"Add Python to PATH"** during installation.
 2. Clone or download this repository.
 3. Double-click **`snelkoppeling_maken.bat`** (Dutch for "create shortcut").
@@ -89,7 +93,16 @@ can read from top to bottom. Without dependencies:
 
 ## Your data
 
-| What | Where |
+Elio keeps your data in your user profile, separate from the program, so updating
+or reinstalling Elio never touches it:
+
+| System | Folder |
+|---|---|
+| Windows | `%APPDATA%\Elio` |
+| macOS | `~/Library/Application Support/Elio` |
+| Linux | `~/.local/share/elio` |
+
+| What | File in that folder |
 |---|---|
 | All courses, tasks and settings | `data.db` (SQLite) |
 | Daily backups (last 14) | `backups/data-YYYY-MM-DD.db` |
@@ -97,11 +110,17 @@ can read from top to bottom. Without dependencies:
 To restore a backup:
 
 1. Stop Elio with the power button in the sidebar.
-2. Copy the backup next to `app.py`.
+2. Copy the backup into the data folder.
 3. Rename it to `data.db`.
 
-`data.db` and `backups/` are listed in `.gitignore`, so personal data never ends up
-in git.
+**Upgrading from an older version?** Earlier versions stored `data.db` next to
+`app.py`. On first start, Elio copies it (and the backups) to the data folder
+automatically. The original file is left untouched; you can delete it once you're
+happy everything moved.
+
+**Database versions.** The database records its schema version. When a new version
+of Elio needs an extra column or table, it upgrades the database step by step and
+makes a safety copy first (`backups/voor-vN-….db`).
 
 ## Project structure
 
@@ -117,18 +136,34 @@ static/
   app.js                 views, state and API calls
   i18n.js                all interface text in English and Dutch
   icon.svg/.png/.ico     app icon
+tests/
+  test_elio.py           server tests (API, database versions, backups, data migration)
+  check_i18n.js          checks that every text exists in both languages
+.github/workflows/
+  tests.yml              runs all tests on Windows, macOS and Linux on every push
 ```
+
+## Tests
+
+```
+python -m unittest discover -s tests -v
+node tests/check_i18n.js
+```
+
+The tests only use the standard library and always work in temporary folders, so
+they never touch your own data. GitHub Actions runs them on every push.
 
 ## Roadmap
 
 - [x] English / Dutch language switch (English as default)
+- [x] Automated tests with GitHub Actions
+- [x] Data stored in the user profile, with database versions
+- [ ] Standalone app for Windows and macOS (PyInstaller) and downloadable releases
 - [ ] "Today" view: overdue, due today and tasks pinned for today
-- [ ] Semesters and an archive for finished courses
 - [ ] Task notes
 - [ ] Backups from Settings: create one now, see the history, restore
+- [ ] Semesters and an archive for finished courses
 - [ ] Windows notifications for upcoming deadlines
-- [ ] Automated tests with GitHub Actions
-- [ ] Standalone `Elio.exe` (PyInstaller) and downloadable releases
 - [ ] Statistics
 - [ ] Calendar view
 

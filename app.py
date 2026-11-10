@@ -7,6 +7,7 @@ import datetime
 import hashlib
 import json
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -15,16 +16,37 @@ import time
 import urllib.request
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 # ----------------------------------------------------------------------------
 # Configuratie
 # ----------------------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "data.db")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
-BACKUP_DIR = os.path.join(BASE_DIR, "backups")
+
+
+def bepaal_data_map():
+    """Map voor je gegevens (database en back-ups), los van de programmamap,
+    zodat een geïnstalleerde of bijgewerkte app ze nooit overschrijft.
+    De omgevingsvariabele ELIO_DATA kiest een andere map (voor tests)."""
+    eigen = os.environ.get("ELIO_DATA")
+    if eigen:
+        return os.path.abspath(eigen)
+    if sys.platform == "win32":
+        return os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "Elio")
+    if sys.platform == "darwin":
+        return os.path.expanduser("~/Library/Application Support/Elio")
+    return os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "elio")
+
+
+DATA_DIR = bepaal_data_map()
+DB_PATH = os.path.join(DATA_DIR, "data.db")
+BACKUP_DIR = os.path.join(DATA_DIR, "backups")
 BACKUPS_BEWAREN = 14
+# Vroegere locatie van de gegevens (naast app.py); wordt eenmalig gekopieerd.
+OUDE_DB_PATH = os.path.join(BASE_DIR, "data.db")
+OUDE_BACKUP_DIR = os.path.join(BASE_DIR, "backups")
 HOST = "127.0.0.1"
 PORT = 8765
 URL = f"http://{HOST}:{PORT}/"
@@ -56,10 +78,61 @@ def get_conn():
     return conn
 
 
-def init_db():
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.executescript(
+def alleen_lezen_uri(pad):
+    # SQLite-URI die een database alleen opent om te lezen (en er nooit een
+    # aanmaakt); werkt ook met spaties en backslashes in het pad.
+    return Path(pad).resolve().as_uri() + "?mode=ro"
+
+
+def kopieer_database(bron_pad, doel_pad):
+    """Veilige kopie via de SQLite backup-API (ook terwijl de app draait).
+    Eerst naar een tijdelijk bestand, dan in één keer hernoemen: bij een
+    onderbreking blijft er nooit een halve kopie achter."""
+    tijdelijk = doel_pad + ".tmp"
+    bron = sqlite3.connect(alleen_lezen_uri(bron_pad), uri=True)
+    kopie = sqlite3.connect(tijdelijk)
+    try:
+        bron.backup(kopie)
+    finally:
+        kopie.close()
+        bron.close()
+    os.replace(tijdelijk, doel_pad)
+
+
+def verhuis_oude_gegevens():
+    """Eenmalig: gegevens van de vroegere locatie (naast app.py) kopiëren naar
+    DATA_DIR. Het origineel blijft staan en er wordt nooit iets overschreven.
+    Geeft True terug als er gekopieerd is."""
+    if os.path.exists(DB_PATH) or not os.path.isfile(OUDE_DB_PATH):
+        return False
+    if os.path.abspath(OUDE_DB_PATH) == os.path.abspath(DB_PATH):
+        return False
+    os.makedirs(DATA_DIR, exist_ok=True)
+    kopieer_database(OUDE_DB_PATH, DB_PATH)
+    if os.path.isdir(OUDE_BACKUP_DIR):
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+        for naam in os.listdir(OUDE_BACKUP_DIR):
+            doel = os.path.join(BACKUP_DIR, naam)
+            if naam.startswith("data-") and naam.endswith(".db") and not os.path.exists(doel):
+                shutil.copy2(os.path.join(OUDE_BACKUP_DIR, naam), doel)
+    return True
+
+
+# ----------------------------------------------------------------------------
+# Database-versies
+# De database onthoudt haar versie (PRAGMA user_version). Elke functie in
+# MIGRATIES brengt de database één versie verder; een nieuwe kolom of tabel
+# wordt dus een nieuwe functie onderaan de lijst. Vóór elke migratie van een
+# bestaande database wordt eerst een veiligheidskopie gemaakt.
+# ----------------------------------------------------------------------------
+class DatabaseTeNieuw(Exception):
+    """De database komt van een nieuwere versie van Elio dan deze."""
+
+
+def _schema_v1(conn):
+    # Het oorspronkelijke schema. IF NOT EXISTS: bestaande databases (van vóór
+    # de versienummering) blijven ongewijzigd en krijgen gewoon versie 1.
+    conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS vakken (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,19 +171,42 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_taken_onderdeel ON taken(onderdeel_id);
         """
     )
-    # Standaardinstellingen
-    defaults = {
-        "thema": "grey",
-        "sidebar_ingeklapt": "0",
-        "taal": STANDAARD_TAAL,
-    }
-    for k, v in defaults.items():
-        cur.execute(
-            "INSERT OR IGNORE INTO instellingen (sleutel, waarde) VALUES (?, ?)",
-            (k, v),
-        )
-    conn.commit()
-    conn.close()
+
+
+MIGRATIES = [_schema_v1]
+SCHEMA_VERSIE = len(MIGRATIES)
+
+
+def init_db():
+    os.makedirs(DATA_DIR, exist_ok=True)
+    conn = get_conn()
+    try:
+        versie = conn.execute("PRAGMA user_version").fetchone()[0]
+        if versie > SCHEMA_VERSIE:
+            raise DatabaseTeNieuw(versie)
+        if 0 < versie < SCHEMA_VERSIE:
+            os.makedirs(BACKUP_DIR, exist_ok=True)
+            kopieer_database(DB_PATH, os.path.join(
+                BACKUP_DIR, f"voor-v{SCHEMA_VERSIE}-{datetime.date.today().isoformat()}.db"))
+        for nummer in range(versie, SCHEMA_VERSIE):
+            MIGRATIES[nummer](conn)
+            conn.execute(f"PRAGMA user_version = {nummer + 1}")
+            conn.commit()
+
+        # Standaardinstellingen
+        defaults = {
+            "thema": "grey",
+            "sidebar_ingeklapt": "0",
+            "taal": STANDAARD_TAAL,
+        }
+        for k, v in defaults.items():
+            conn.execute(
+                "INSERT OR IGNORE INTO instellingen (sleutel, waarde) VALUES (?, ?)",
+                (k, v),
+            )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def maak_backup():
@@ -124,13 +220,7 @@ def maak_backup():
     os.makedirs(BACKUP_DIR, exist_ok=True)
     doel = os.path.join(BACKUP_DIR, f"data-{datetime.date.today().isoformat()}.db")
     if not os.path.exists(doel):
-        bron = sqlite3.connect(DB_PATH)
-        kopie = sqlite3.connect(doel)
-        try:
-            bron.backup(kopie)
-        finally:
-            kopie.close()
-            bron.close()
+        kopieer_database(DB_PATH, doel)
     backups = sorted(
         f for f in os.listdir(BACKUP_DIR) if f.startswith("data-") and f.endswith(".db")
     )
@@ -222,6 +312,10 @@ TEKSTEN = {
     "vorige_niet_gestopt": {"en": "The previous version of Elio could not be stopped.\nRestart your PC and try again.",
                             "nl": "De vorige versie van Elio kon niet gestopt worden.\nHerstart je pc en probeer opnieuw."},
     "backup_mislukt": {"en": "Creating a backup failed: {detail}", "nl": "Backup maken mislukt: {detail}"},
+    "database_te_nieuw": {"en": "Your data was saved by a newer version of Elio (database version {versie}).\n"
+                                "Install the latest version of Elio to open it.",
+                          "nl": "Je gegevens zijn bewaard door een nieuwere versie van Elio (databaseversie {versie}).\n"
+                                "Installeer de nieuwste versie van Elio om ze te openen."},
     "fout_gestopt": {"en": "Elio stopped because of an error.\nDetails are in:\n{log}",
                      "nl": "Elio is gestopt met een fout.\nDetails staan in:\n{log}"},
 }
@@ -231,7 +325,9 @@ def taal():
     """De gekozen taal uit de instellingen (alleen lezen; maakt geen database
     aan als die nog niet bestaat). Valt terug op de standaardtaal."""
     try:
-        conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+        if not os.path.isfile(DB_PATH):
+            return STANDAARD_TAAL
+        conn = sqlite3.connect(alleen_lezen_uri(DB_PATH), uri=True)
         try:
             rij = conn.execute("SELECT waarde FROM instellingen WHERE sleutel = 'taal'").fetchone()
         finally:
@@ -984,7 +1080,14 @@ def main():
             meld_fout(tekst("vorige_niet_gestopt"))
             sys.exit(1)
 
-    init_db()
+    # Pas nu (de vorige server is gestopt) zijn de oude gegevens veilig te kopiëren
+    verhuis_oude_gegevens()
+    try:
+        init_db()
+    except DatabaseTeNieuw as e:
+        SERVER.server_close()
+        meld_fout(tekst("database_te_nieuw", versie=e.args[0]))
+        sys.exit(1)
     try:
         maak_backup()
     except Exception as e:
